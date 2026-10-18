@@ -206,23 +206,20 @@ fun UnlockScreen(
                     .padding(bottom = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Primary Action: Allow / Разрешить вход
-                Button(
-                    onClick = {
-                        onEvent(
-                            UnlockScreenUiEvent.Allow(
-                                fragmentActivity = fragmentActivity,
-                                isSentByUser = true
-                            )
-                        )
-                    },
+
+                // Tertiary Action: Postpone / Отложить
+                OutlinedButton(
+                    onClick = { onEvent(UnlockScreenUiEvent.Delay) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(27.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        .height(48.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 ) {
                     Row(
@@ -230,16 +227,18 @@ fun UnlockScreen(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            painter = painterResource(id = R.drawable.check_circle),
+                            painter = painterResource(id = R.drawable.snooze),
                             contentDescription = null,
-                            modifier = Modifier.size(22.dp)
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(19.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = stringResource(R.string.allow_entry),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold
-                            )
+                            text = stringResource(R.string.delay),
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -277,16 +276,23 @@ fun UnlockScreen(
                     }
                 }
 
-                // Tertiary Action: Postpone / Отложить
-                OutlinedButton(
-                    onClick = { onEvent(UnlockScreenUiEvent.Delay) },
+                // Primary Action: Allow / Разрешить вход
+                Button(
+                    onClick = {
+                        onEvent(
+                            UnlockScreenUiEvent.Allow(
+                                fragmentActivity = fragmentActivity,
+                                isSentByUser = true
+                            )
+                        )
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        .height(54.dp),
+                    shape = RoundedCornerShape(27.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 ) {
                     Row(
@@ -294,18 +300,16 @@ fun UnlockScreen(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            painter = painterResource(id = R.drawable.snooze),
+                            painter = painterResource(id = R.drawable.check_circle),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(19.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = stringResource(R.string.delay),
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Medium
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = stringResource(R.string.allow_entry),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold
+                            )
                         )
                     }
                 }
