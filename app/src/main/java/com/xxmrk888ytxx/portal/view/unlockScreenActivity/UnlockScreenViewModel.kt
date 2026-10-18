@@ -16,6 +16,7 @@ import com.xxmrk888ytxx.portal.domain.SettingsRepository
 import com.xxmrk888ytxx.portal.domain.UnlockMessageSender
 import com.xxmrk888ytxx.portal.domain.UnlockRequestManager
 import com.xxmrk888ytxx.portal.domain.model.BiometricDialogEvent
+import com.xxmrk888ytxx.portal.domain.model.DeviceType
 import com.xxmrk888ytxx.portal.domain.model.UnlockServiceMessage
 import com.xxmrk888ytxx.portal.domain.model.UnlockServiceRequest
 import com.xxmrk888ytxx.portal.utils.getParsableExtraCompat
@@ -59,8 +60,8 @@ class UnlockScreenViewModel @Inject constructor(
     private val _deviceName = MutableStateFlow("")
     val deviceName: StateFlow<String> = _deviceName.asStateFlow()
 
-    private val _connectionType = MutableStateFlow<String?>(null)
-    val connectionType: StateFlow<String?> = _connectionType.asStateFlow()
+    private val _connectionType = MutableStateFlow<DeviceType?>(null)
+    val connectionType: StateFlow<DeviceType?> = _connectionType.asStateFlow()
 
     val themeColor =
         settingsRepository.portalSettings.map { it.themeColor }.stateWhileSubscribed(null)

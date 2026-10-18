@@ -34,13 +34,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import com.xxmrk888ytxx.portal.R
+import com.xxmrk888ytxx.portal.domain.model.DeviceType
 import com.xxmrk888ytxx.portal.view.model.UnlockScreenUiEvent
 
 @Composable
 fun UnlockScreen(
     modifier: Modifier,
     deviceName: String,
-    connectionType: String? = null,
+    connectionType: DeviceType? = null,
     onEvent: (UnlockScreenUiEvent) -> Unit
 ) {
     val activity = LocalActivity.current
@@ -167,7 +168,7 @@ fun UnlockScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Unlock Type Badge (Wi-Fi or Bluetooth)
-                val isBluetooth = connectionType?.equals("Bluetooth", ignoreCase = true) == true
+                val isBluetooth = connectionType == DeviceType.BLUETOOTH
                 Surface(
                     shape = RoundedCornerShape(100),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -187,7 +188,7 @@ fun UnlockScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isBluetooth) "Bluetooth" else "Wi-Fi",
+                            text = stringResource(if (isBluetooth) R.string.bluetooth else R.string.wi_fi),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
