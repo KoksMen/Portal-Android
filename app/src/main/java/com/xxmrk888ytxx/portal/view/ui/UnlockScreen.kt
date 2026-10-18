@@ -2,7 +2,6 @@ package com.xxmrk888ytxx.portal.view.ui
 
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +40,7 @@ import com.xxmrk888ytxx.portal.view.model.UnlockScreenUiEvent
 fun UnlockScreen(
     modifier: Modifier,
     deviceName: String,
+    connectionType: String? = null,
     onEvent: (UnlockScreenUiEvent) -> Unit
 ) {
     val activity = LocalActivity.current
@@ -58,15 +58,14 @@ fun UnlockScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // 1. Top Section: Status & Security Protocol Badge
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp),
+                    .padding(top = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Surface(
@@ -96,7 +95,7 @@ fun UnlockScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     text = stringResource(R.string.confirm_your_identity),
@@ -106,42 +105,44 @@ fun UnlockScreen(
                 )
             }
 
-            // 2. Center Content: Hero Icon & Headings
+            // Push center content noticeably higher
+            Spacer(modifier = Modifier.weight(0.55f))
+
+            // 2. Center Content: Hero Icon, Titles & Prominent Device Name in Center
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Radiant Lock Squircle Icon Container
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(18.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
-                    modifier = Modifier.size(72.dp)
+                    modifier = Modifier.size(64.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             painter = painterResource(id = R.drawable.lock_open),
                             contentDescription = null,
-                            modifier = Modifier.size(36.dp),
+                            modifier = Modifier.size(32.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
                     text = stringResource(R.string.unlock_request),
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp
                     ),
                     color = MaterialTheme.colorScheme.onBackground,
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
                     text = stringResource(R.string.unlock_request_desc),
@@ -150,22 +151,23 @@ fun UnlockScreen(
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // Prominent Device Name
+                // Prominent Device Name right in the center
                 Text(
                     text = deviceName.ifBlank { stringResource(R.string.app_name) },
                     style = MaterialTheme.typography.headlineLarge.copy(
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 32.sp
+                        fontSize = 34.sp
                     ),
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Device connection badge
+                // Unlock Type Badge (Wi-Fi or Bluetooth)
+                val isBluetooth = connectionType?.equals("Bluetooth", ignoreCase = true) == true
                 Surface(
                     shape = RoundedCornerShape(100),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -176,26 +178,31 @@ fun UnlockScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            painter = painterResource(id = R.drawable.security),
+                            painter = painterResource(
+                                id = if (isBluetooth) R.drawable.bluetooth else R.drawable.wifi
+                            ),
                             contentDescription = null,
-                            modifier = Modifier.size(14.dp),
+                            modifier = Modifier.size(15.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = stringResource(R.string.requests_for_unlocking),
-                            style = MaterialTheme.typography.labelMedium,
+                            text = if (isBluetooth) "Bluetooth" else "Wi-Fi",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
 
+            // Lower spacer with greater weight to keep center block positioned higher
+            Spacer(modifier = Modifier.weight(1.35f))
+
             // 3. Bottom Action Controls
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp),
+                    .padding(bottom = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Primary Action: Allow / Разрешить вход

@@ -51,14 +51,14 @@ class UnlockScreenActivity @Inject constructor(
 
             Scaffold(Modifier.fillMaxSize()) { paddingValues ->
                 val deviceName by unlockScreenViewModel.deviceName.collectAsState()
+                val connectionType by unlockScreenViewModel.connectionType.collectAsState()
                 UnlockScreen(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(paddingValues)
-                        .verticalScroll(rememberScrollState())
-                    ,
+                        .padding(paddingValues),
                     onEvent = unlockScreenViewModel::handleEvent,
-                    deviceName = deviceName
+                    deviceName = deviceName,
+                    connectionType = connectionType
                 )
             }
         }
