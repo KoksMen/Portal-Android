@@ -59,6 +59,9 @@ class UnlockScreenViewModel @Inject constructor(
     private val _deviceName = MutableStateFlow("")
     val deviceName: StateFlow<String> = _deviceName.asStateFlow()
 
+    private val _connectionType = MutableStateFlow<String?>(null)
+    val connectionType: StateFlow<String?> = _connectionType.asStateFlow()
+
     val themeColor =
         settingsRepository.portalSettings.map { it.themeColor }.stateWhileSubscribed(null)
 
@@ -176,6 +179,8 @@ class UnlockScreenViewModel @Inject constructor(
         viewModelScope.launch {
             _deviceName.value =
                 provideDeviceNameByClientId.provideName(intentUnlockScreenData.clientId) ?: ""
+            _connectionType.value =
+                provideDeviceNameByClientId.provideType(intentUnlockScreenData.clientId)
         }
         intentUnlockScreenData.decisionId?.let { decisionId ->
             viewModelScope.launch {

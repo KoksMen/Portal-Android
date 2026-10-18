@@ -16,4 +16,12 @@ class ProvideDeviceNameByClientIdImpl @Inject constructor(
         val bluetoothDevice = bluetoothDeviceRepository.getDeviceById(clientId).first()
         return bluetoothDevice?.name
     }
+
+    override suspend fun provideType(clientId: String): String? {
+        val wifiDevice = wifiDeviceRepository.getDeviceById(clientId).first()
+        if (wifiDevice != null) return "Wi-Fi"
+        val bluetoothDevice = bluetoothDeviceRepository.getDeviceById(clientId).first()
+        if (bluetoothDevice != null) return "Bluetooth"
+        return null
+    }
 }
