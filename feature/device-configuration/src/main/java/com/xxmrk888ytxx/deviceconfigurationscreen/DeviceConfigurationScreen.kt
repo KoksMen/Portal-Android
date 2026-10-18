@@ -195,10 +195,15 @@ fun DeviceInfoState(
             onCopy = copyToClipboard
         )
 
-        // 2. Security & mTLS Card (Server mTLS, Client mTLS, Device UUID)
+        // 2. Security & mTLS / Device Identification Card
+        val isWifi = screenState.device is Device.WifiDevice
         SectionTitle(
             icon = R.drawable.verified_user,
-            title = stringResource(R.string.security_and_mtls)
+            title = if (isWifi) {
+                stringResource(R.string.security_and_mtls)
+            } else {
+                stringResource(R.string.device_identification)
+            }
         )
 
         SecurityAndMtlsCard(
@@ -251,6 +256,7 @@ fun DeviceInfoState(
         )
 
         DangerZoneCard(
+            isWifi = isWifi,
             onClick = { onEvent(DeviceConfigurationUiEvent.ShowRemoveDialog) }
         )
 
@@ -590,63 +596,53 @@ private fun SecurityAndMtlsCard(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            val bluetoothNoMtlsDesc = stringResource(R.string.bluetooth_rfcomm_no_mtls_desc)
+            if (device is Device.WifiDevice) {
+                // 1. Блок: Сервер mTLS
+                val serverTitle = stringResource(R.string.server_mtls)
+                val serverCertModalTitle = stringResource(R.string.server_mtls_cert)
+                val serverFp = device.serverCertificateFingerprint
+                val serverDisplayFp = serverFp.truncateFingerprint()
 
-            // 1. Блок: Сервер mTLS
-            val serverTitle = stringResource(R.string.server_mtls)
-            val serverCertModalTitle = stringResource(R.string.server_mtls_cert)
-            val serverFp = if (device is Device.WifiDevice) {
-                device.serverCertificateFingerprint
-            } else {
-                null
+                SecurityIdentifierItemCard(
+                    icon = R.drawable.key,
+                    title = serverTitle,
+                    tag = "SHA-256",
+                    displayValue = serverDisplayFp,
+                    fullValue = serverFp,
+                    onInfoClick = {
+                        onShowInfo(
+                            serverCertModalTitle,
+                            "SHA-256",
+                            serverFp,
+                            null
+                        )
+                    },
+                    onCopyClick = { onCopy(serverFp) }
+                )
+
+                // 2. Блок: Клиент mTLS
+                val clientTitle = stringResource(R.string.client_mtls)
+                val clientCertModalTitle = stringResource(R.string.client_mtls_cert)
+                val clientFp = device.clientCertificateFingerprint
+                val clientDisplayFp = clientFp.truncateFingerprint()
+
+                SecurityIdentifierItemCard(
+                    icon = R.drawable.smartphone,
+                    title = clientTitle,
+                    tag = "SHA-256",
+                    displayValue = clientDisplayFp,
+                    fullValue = clientFp,
+                    onInfoClick = {
+                        onShowInfo(
+                            clientCertModalTitle,
+                            "SHA-256",
+                            clientFp,
+                            null
+                        )
+                    },
+                    onCopyClick = { onCopy(clientFp) }
+                )
             }
-            val serverDisplayFp = serverFp?.truncateFingerprint()
-                ?: stringResource(R.string.not_required_bluetooth)
-
-            SecurityIdentifierItemCard(
-                icon = R.drawable.key,
-                title = serverTitle,
-                tag = "SHA-256",
-                displayValue = serverDisplayFp,
-                fullValue = serverFp,
-                onInfoClick = {
-                    onShowInfo(
-                        serverCertModalTitle,
-                        "SHA-256",
-                        serverFp ?: bluetoothNoMtlsDesc,
-                        if (serverFp == null) bluetoothNoMtlsDesc else null
-                    )
-                },
-                onCopyClick = serverFp?.let { { onCopy(it) } }
-            )
-
-            // 2. Блок: Клиент mTLS
-            val clientTitle = stringResource(R.string.client_mtls)
-            val clientCertModalTitle = stringResource(R.string.client_mtls_cert)
-            val clientFp = if (device is Device.WifiDevice) {
-                device.clientCertificateFingerprint
-            } else {
-                null
-            }
-            val clientDisplayFp = clientFp?.truncateFingerprint()
-                ?: stringResource(R.string.not_required_bluetooth)
-
-            SecurityIdentifierItemCard(
-                icon = R.drawable.smartphone,
-                title = clientTitle,
-                tag = "SHA-256",
-                displayValue = clientDisplayFp,
-                fullValue = clientFp,
-                onInfoClick = {
-                    onShowInfo(
-                        clientCertModalTitle,
-                        "SHA-256",
-                        clientFp ?: bluetoothNoMtlsDesc,
-                        if (clientFp == null) bluetoothNoMtlsDesc else null
-                    )
-                },
-                onCopyClick = clientFp?.let { { onCopy(it) } }
-            )
 
             // 3. Блок: Device UUID (ИД устройства)
             val uuidTitle = stringResource(R.string.device_uuid)
@@ -1079,6 +1075,7 @@ private fun SwitchItemRow(
 
 @Composable
 private fun DangerZoneCard(
+    isWifi: Boolean,
     onClick: () -> Unit
 ) {
     Card(
@@ -1124,7 +1121,11 @@ private fun DangerZoneCard(
                     color = MaterialTheme.colorScheme.error
                 )
                 Text(
-                    text = stringResource(R.string.unpair_device_desc),
+                    text = if (isWifi) {
+                        stringResource(R.string.unpair_device_desc)
+                    } else {
+                        stringResource(R.string.unpair_device_bluetooth_desc)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -72,4 +72,6 @@
     <string name="server_mtls_cert">Сертификат сервера mTLS</string>
     <string name="client_mtls_cert">Сертификат клиента mTLS</string>
     <string name="device_id_title">Идентификатор устройства</string>
+    <string name="device_identification">Идентификация устройства</string>
+    <string name="unpair_device_bluetooth_desc">Разорвать сопряжение и удалить сохраненные сессии</string>
 </resources>

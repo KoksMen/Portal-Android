@@ -71,4 +71,6 @@
     <string name="server_mtls_cert">mTLS Server Certificate</string>
     <string name="client_mtls_cert">mTLS Client Certificate</string>
     <string name="device_id_title">Device Identifier</string>
+    <string name="device_identification">Device Identification</string>
+    <string name="unpair_device_bluetooth_desc">Unpair device and remove saved sessions</string>
 </resources>
