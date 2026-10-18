@@ -64,4 +64,12 @@
     <string name="unpair_device_desc">Отозвать mTLS сертификаты и удалить сохраненные сессии</string>
     <string name="wifi_websockets">Wi-Fi (WebSockets)</string>
     <string name="bluetooth_rfcomm">Bluetooth (RFCOMM)</string>
+    <string name="details_uuid">Подробнее о UUID</string>
+    <string name="full_uuid">Полный идентификатор (UUID)</string>
+    <string name="copy_uuid">Скопировать UUID</string>
+    <string name="not_required_bluetooth">Не требуется (Bluetooth)</string>
+    <string name="bluetooth_rfcomm_no_mtls_desc">Для подключения через Bluetooth используется системное сопряжение RFCOMM, сертификаты mTLS не требуются.</string>
+    <string name="server_mtls_cert">Сертификат сервера mTLS</string>
+    <string name="client_mtls_cert">Сертификат клиента mTLS</string>
+    <string name="device_id_title">Идентификатор устройства</string>
 </resources>

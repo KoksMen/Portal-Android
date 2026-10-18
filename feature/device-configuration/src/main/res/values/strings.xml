@@ -63,4 +63,12 @@
     <string name="unpair_device_desc">Revoke mTLS certificates and remove saved sessions</string>
     <string name="wifi_websockets">Wi-Fi (WebSockets)</string>
     <string name="bluetooth_rfcomm">Bluetooth (RFCOMM)</string>
+    <string name="details_uuid">UUID Details</string>
+    <string name="full_uuid">Full Identifier (UUID)</string>
+    <string name="copy_uuid">Copy UUID</string>
+    <string name="not_required_bluetooth">Not required (Bluetooth)</string>
+    <string name="bluetooth_rfcomm_no_mtls_desc">Bluetooth connections use system RFCOMM pairing, mTLS certificates are not used.</string>
+    <string name="server_mtls_cert">mTLS Server Certificate</string>
+    <string name="client_mtls_cert">mTLS Client Certificate</string>
+    <string name="device_id_title">Device Identifier</string>
 </resources>

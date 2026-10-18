@@ -8,7 +8,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -87,7 +86,9 @@ import kotlinx.coroutines.flow.Flow
 
 private data class CertDetailsInfo(
     val title: String,
-    val fingerprint: String
+    val type: String,
+    val value: String,
+    val description: String? = null
 )
 
 private enum class ActiveEditDialog {
@@ -194,7 +195,7 @@ fun DeviceInfoState(
             onCopy = copyToClipboard
         )
 
-        // 2. Security & mTLS Card
+        // 2. Security & mTLS Card (Server mTLS, Client mTLS, Device UUID)
         SectionTitle(
             icon = R.drawable.verified_user,
             title = stringResource(R.string.security_and_mtls)
@@ -202,7 +203,9 @@ fun DeviceInfoState(
 
         SecurityAndMtlsCard(
             device = screenState.device,
-            onShowCert = { title, fp -> certDetails = CertDetailsInfo(title, fp) },
+            onShowInfo = { title, type, value, desc ->
+                certDetails = CertDetailsInfo(title, type, value, desc)
+            },
             onCopy = copyToClipboard
         )
 
@@ -303,7 +306,7 @@ fun DeviceInfoState(
         null -> {}
     }
 
-    // Certificate Details Modal Bottom Sheet
+    // Certificate / UUID Details Modal Bottom Sheet
     certDetails?.let { details ->
         CertificateDetailBottomSheet(
             details = details,
@@ -570,12 +573,9 @@ private fun ParameterRow(
 @Composable
 private fun SecurityAndMtlsCard(
     device: Device,
-    onShowCert: (title: String, fingerprint: String) -> Unit,
+    onShowInfo: (title: String, type: String, value: String, description: String?) -> Unit,
     onCopy: (String) -> Unit
 ) {
-    val serverMtlsTitle = stringResource(R.string.server_mtls)
-    val clientMtlsTitle = stringResource(R.string.client_mtls)
-
     Card(
         shape = RoundedCornerShape(24.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
@@ -587,139 +587,215 @@ private fun SecurityAndMtlsCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            if (device is Device.WifiDevice) {
-                // Server mTLS
-                MtlsItemRow(
-                    label = serverMtlsTitle,
-                    fullFingerprint = device.serverCertificateFingerprint,
-                    onInfoClick = { onShowCert(serverMtlsTitle, device.serverCertificateFingerprint) },
-                    onCopyClick = { onCopy(device.serverCertificateFingerprint) }
-                )
+            val bluetoothNoMtlsDesc = stringResource(R.string.bluetooth_rfcomm_no_mtls_desc)
 
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                    thickness = 1.dp
-                )
-
-                // Client mTLS
-                MtlsItemRow(
-                    label = clientMtlsTitle,
-                    fullFingerprint = device.clientCertificateFingerprint,
-                    onInfoClick = { onShowCert(clientMtlsTitle, device.clientCertificateFingerprint) },
-                    onCopyClick = { onCopy(device.clientCertificateFingerprint) }
-                )
-
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                    thickness = 1.dp
-                )
+            // 1. Блок: Сервер mTLS
+            val serverTitle = stringResource(R.string.server_mtls)
+            val serverCertModalTitle = stringResource(R.string.server_mtls_cert)
+            val serverFp = if (device is Device.WifiDevice) {
+                device.serverCertificateFingerprint
+            } else {
+                null
             }
+            val serverDisplayFp = serverFp?.truncateFingerprint()
+                ?: stringResource(R.string.not_required_bluetooth)
 
-            // Device UUID
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.device_uuid),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+            SecurityIdentifierItemCard(
+                icon = R.drawable.key,
+                title = serverTitle,
+                tag = "SHA-256",
+                displayValue = serverDisplayFp,
+                fullValue = serverFp,
+                onInfoClick = {
+                    onShowInfo(
+                        serverCertModalTitle,
+                        "SHA-256",
+                        serverFp ?: bluetoothNoMtlsDesc,
+                        if (serverFp == null) bluetoothNoMtlsDesc else null
                     )
-                    Text(
-                        text = device.clientId.truncate(20),
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.Medium,
-                            fontFamily = FontFamily.Monospace
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                },
+                onCopyClick = serverFp?.let { { onCopy(it) } }
+            )
 
-                IconButton(
-                    onClick = { onCopy(device.clientId) },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.content_copy),
-                        contentDescription = stringResource(R.string.device_uuid),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+            // 2. Блок: Клиент mTLS
+            val clientTitle = stringResource(R.string.client_mtls)
+            val clientCertModalTitle = stringResource(R.string.client_mtls_cert)
+            val clientFp = if (device is Device.WifiDevice) {
+                device.clientCertificateFingerprint
+            } else {
+                null
             }
+            val clientDisplayFp = clientFp?.truncateFingerprint()
+                ?: stringResource(R.string.not_required_bluetooth)
+
+            SecurityIdentifierItemCard(
+                icon = R.drawable.smartphone,
+                title = clientTitle,
+                tag = "SHA-256",
+                displayValue = clientDisplayFp,
+                fullValue = clientFp,
+                onInfoClick = {
+                    onShowInfo(
+                        clientCertModalTitle,
+                        "SHA-256",
+                        clientFp ?: bluetoothNoMtlsDesc,
+                        if (clientFp == null) bluetoothNoMtlsDesc else null
+                    )
+                },
+                onCopyClick = clientFp?.let { { onCopy(it) } }
+            )
+
+            // 3. Блок: Device UUID (ИД устройства)
+            val uuidTitle = stringResource(R.string.device_uuid)
+            val uuidModalTitle = stringResource(R.string.device_id_title)
+            val uuidDisplay = device.clientId.truncateUuid()
+
+            SecurityIdentifierItemCard(
+                icon = R.drawable.fingerprint,
+                title = uuidTitle,
+                tag = "UUID v4",
+                displayValue = uuidDisplay,
+                fullValue = device.clientId,
+                onInfoClick = {
+                    onShowInfo(
+                        uuidModalTitle,
+                        "UUID v4",
+                        device.clientId,
+                        null
+                    )
+                },
+                onCopyClick = { onCopy(device.clientId) }
+            )
         }
     }
 }
 
 @Composable
-private fun MtlsItemRow(
-    label: String,
-    fullFingerprint: String,
+private fun SecurityIdentifierItemCard(
+    icon: Int,
+    title: String,
+    tag: String,
+    displayValue: String,
+    fullValue: String?,
     onInfoClick: () -> Unit,
-    onCopyClick: () -> Unit
+    onCopyClick: (() -> Unit)?,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        modifier = modifier.fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = fullFingerprint.truncate(18),
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.Medium,
-                    fontFamily = FontFamily.Monospace
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
         Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            IconButton(
-                onClick = onInfoClick,
-                modifier = Modifier.size(36.dp)
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.info),
-                    contentDescription = stringResource(R.string.certificate_details),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
+                // Squircle icon container
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(icon),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            modifier = Modifier.padding(top = 1.dp)
+                        ) {
+                            Text(
+                                text = tag,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = displayValue,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
-            IconButton(
-                onClick = onCopyClick,
-                modifier = Modifier.size(36.dp)
+            // Action Buttons: Info (ℹ️) and Copy (content_copy)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.content_copy),
-                    contentDescription = stringResource(R.string.copy_fingerprint),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp)
-                )
+                IconButton(
+                    onClick = onInfoClick,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.info),
+                        contentDescription = stringResource(R.string.certificate_details),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                if (onCopyClick != null) {
+                    IconButton(
+                        onClick = onCopyClick,
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.content_copy),
+                            contentDescription = stringResource(R.string.copy_fingerprint),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
         }
     }
@@ -1133,75 +1209,154 @@ private fun CertificateDetailBottomSheet(
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Box(
+            // Header with verified icon, title, type badge, and close button
+            Row(
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.verified_user),
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.verified_user),
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = details.title,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            modifier = Modifier.padding(top = 2.dp)
+                        ) {
+                            Text(
+                                text = details.type,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
             }
 
-            Text(
-                text = details.title,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold
-                ),
-                textAlign = TextAlign.Center
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                thickness = 1.dp
             )
 
-            Text(
-                text = stringResource(R.string.full_fingerprint),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            // Content
+            val isUuid = details.type.contains("UUID", ignoreCase = true)
+            val label = if (isUuid) {
+                stringResource(R.string.full_uuid)
+            } else {
+                stringResource(R.string.full_fingerprint)
+            }
 
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = details.fingerprint,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 0.5.sp
+                    text = label.uppercase(),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        letterSpacing = 1.sp,
+                        fontWeight = FontWeight.SemiBold
                     ),
-                    modifier = Modifier.padding(16.dp),
-                    textAlign = TextAlign.Center
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = details.value,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 0.5.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+
+                if (details.description != null) {
+                    Text(
+                        text = details.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
-            Button(
-                onClick = {
-                    onCopy(details.fingerprint)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp)
+            // Buttons: Copy and Close
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.content_copy),
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.copy_fingerprint))
-            }
+                Button(
+                    onClick = { onCopy(details.value) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.content_copy),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isUuid) stringResource(R.string.copy_uuid) else stringResource(R.string.copy_fingerprint),
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
 
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.close))
+                TextButton(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.close),
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             }
         }
     }
@@ -1350,10 +1505,19 @@ fun LoadingState() {
     }
 }
 
-private fun String.truncate(maxLength: Int): String {
-    if (length <= maxLength) return this
-    val half = (maxLength - 1) / 2
-    return take(half) + "…" + takeLast(half)
+private fun String.truncateFingerprint(): String {
+    if (length <= 20) return this
+    val parts = split(":")
+    return if (parts.size >= 8) {
+        "${parts.take(4).joinToString(":")}...${parts.takeLast(3).joinToString(":")}"
+    } else {
+        "${take(11)}...${takeLast(8)}"
+    }
+}
+
+private fun String.truncateUuid(): String {
+    if (length <= 16) return this
+    return "${take(8)}...${takeLast(8)}"
 }
 
 fun String.isValidMacInput(): Boolean {
