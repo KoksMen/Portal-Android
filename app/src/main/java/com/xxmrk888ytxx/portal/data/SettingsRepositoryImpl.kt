@@ -4,7 +4,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.xxmrk888ytxx.coreandroid.fastDebugLog
+import com.xxmrk888ytxx.portal.domain.AppIconManager
 import com.xxmrk888ytxx.portal.domain.DeviceRepository
 import com.xxmrk888ytxx.portal.domain.SettingsRepository
 import com.xxmrk888ytxx.portal.domain.SettingsRepository.Companion.DEFAULT_VALUE
@@ -19,7 +21,8 @@ import javax.inject.Inject
 
 class SettingsRepositoryImpl @Inject constructor(
     private val preferencesStorage: PreferencesStorage,
-    private val deviceRepository: DeviceRepository
+    private val deviceRepository: DeviceRepository,
+    private val appIconManager: AppIconManager
 ) : SettingsRepository {
 
     private val biometricAuthEnabled = booleanPreferencesKey("biometricAuthEnabled")
@@ -35,6 +38,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private val isOnboardingPassedKey = booleanPreferencesKey("is_onboarding_passed")
     private val themeColorKey = longPreferencesKey("theme_color")
     private val watchDogEnabledKey = booleanPreferencesKey("watch_dog_enabled")
+    private val appIconKey = stringPreferencesKey("app_icon_key")
 
 
     override val portalSettings: Flow<PortalSettings> = combine<Any?, PortalSettings>(
@@ -45,7 +49,8 @@ class SettingsRepositoryImpl @Inject constructor(
         preferencesStorage.getProperty(isUnsafeUnlockTypesDisabledKey, false),
         preferencesStorage.getProperty(isOnboardingPassedKey, false),
         preferencesStorage.getPropertyOrNull(themeColorKey),
-        preferencesStorage.getProperty(watchDogEnabledKey, false)
+        preferencesStorage.getProperty(watchDogEnabledKey, false),
+        preferencesStorage.getProperty(appIconKey, "default")
     ) { flowArray ->
         val biometricAuthEnabled = flowArray[0] as Boolean
         val additionalPasswordAuthEnabled = flowArray[1] as Boolean
@@ -55,6 +60,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val isOnboardingPassed = flowArray[5] as Boolean
         val themeColor = flowArray[6] as Long?
         val isWatchDogEnabled = flowArray[7] as Boolean
+        val appIconId = flowArray[8] as String
 
         PortalSettings(
             isBiometricAuthEnabled = biometricAuthEnabled,
@@ -64,7 +70,8 @@ class SettingsRepositoryImpl @Inject constructor(
             isUnsafeUnlockTypesDisabled = isUnsafeUnlockTypesDisabled,
             isOnboardingPassed = isOnboardingPassed,
             themeColor = if (themeColor == null) null else Color(value = themeColor.toULong()),
-            isWatchDogEnabled = isWatchDogEnabled
+            isWatchDogEnabled = isWatchDogEnabled,
+            appIconId = appIconId
         )
     }
 
@@ -129,5 +136,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateWatchDogEnabled(isEnabled: Boolean) = withContext(Dispatchers.IO) {
         preferencesStorage.writeProperty(watchDogEnabledKey, isEnabled)
+    }
+
+    override suspend fun updateAppIconId(iconId: String) = withContext(Dispatchers.IO) {
+        preferencesStorage.writeProperty(appIconKey, iconId)
+        appIconManager.setAppIcon(iconId)
     }
 }

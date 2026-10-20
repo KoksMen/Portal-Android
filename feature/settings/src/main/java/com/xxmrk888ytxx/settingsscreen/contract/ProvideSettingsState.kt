@@ -11,4 +11,5 @@ interface ProvideSettingsState {
     val isUnsafeUnlockTypesDisabled: Flow<Boolean>
     val isWatchDogEnabled: Flow<Boolean>
     val themeColor: Flow<Color?>
+    val appIconId: Flow<String>
 }

@@ -74,6 +74,7 @@ import com.xxmrk888ytxx.coreandroid.AvatarLink
 import com.xxmrk888ytxx.coreandroid.mvi.SideEffect
 import com.xxmrk888ytxx.corecompose.HandleSideEffect
 import com.xxmrk888ytxx.corecompose.theme.AppSeedColors
+import com.xxmrk888ytxx.settingsscreen.model.AppIcon
 import com.xxmrk888ytxx.settingsscreen.model.BottomSheetState
 import com.xxmrk888ytxx.settingsscreen.model.ScreenState
 import com.xxmrk888ytxx.settingsscreen.model.SettingsScreenEvent
@@ -192,6 +193,15 @@ fun SettingsScreen(
                 ) {
                     onEvent(SettingsScreenEvent.OnThemeClicked)
                 }
+
+                val currentAppIcon = AppIcon.fromId(screenState.currentAppIconId)
+                SettingsItem(
+                    title = stringResource(R.string.app_icon),
+                    subtitle = stringResource(currentAppIcon.titleRes),
+                    iconRes = R.drawable.portal
+                ) {
+                    onEvent(SettingsScreenEvent.OnAppIconClicked)
+                }
             }
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -303,6 +313,11 @@ fun SettingsScreen(
                 onEvent(SettingsScreenEvent.OnThemeColorSelected(it))
             },
             selectedColor = screenState.bottomSheetState.selectedThemeColor
+        )
+        is BottomSheetState.SelectAppIconDialog -> SelectAppIconDialog(
+            currentIconId = screenState.bottomSheetState.currentIconId,
+            onDismiss = { onEvent(SettingsScreenEvent.HideBottomSheet) },
+            onIconSelected = { onEvent(SettingsScreenEvent.OnAppIconSelected(it)) }
         )
     }
 }
@@ -765,6 +780,113 @@ fun ConfirmSecurityChangesDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(stringResource(R.string.cancel))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SelectAppIconDialog(
+    currentIconId: String,
+    onDismiss: () -> Unit,
+    onIconSelected: (String) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scrollState = rememberScrollState()
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(R.string.choose_app_icon),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            AppIcon.entries.forEach { icon ->
+                val isSelected = icon.id == currentIconId
+                val containerColor = if (isSelected) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                }
+                val borderColor = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    Color.Transparent
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable {
+                            onIconSelected(icon.id)
+                        },
+                    shape = RoundedCornerShape(20.dp),
+                    color = containerColor,
+                    border = androidx.compose.foundation.BorderStroke(if (isSelected) 2.dp else 1.dp, borderColor)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Image(
+                            painter = painterResource(icon.previewRes),
+                            contentDescription = stringResource(icon.titleRes),
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(RoundedCornerShape(14.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = stringResource(icon.titleRes),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(icon.descriptionRes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        if (isSelected) {
+                            Icon(
+                                painter = painterResource(R.drawable.check),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     }

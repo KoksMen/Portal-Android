@@ -33,13 +33,52 @@
         <activity
             android:name=".view.mainActivity.MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.Portal">
+            android:theme="@style/Theme.Portal" />
+
+        <!-- Primary App Icon (Anime 1 - Default) -->
+        <activity-alias
+            android:name=".MainActivityDefault"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:label="@string/app_name"
+            android:targetActivity=".view.mainActivity.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+
+        <!-- Alternative App Icon 1 (Anime 2) -->
+        <activity-alias
+            android:name=".MainActivityAnime2"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_anime2"
+            android:roundIcon="@mipmap/ic_launcher_anime2_round"
+            android:label="@string/app_name"
+            android:targetActivity=".view.mainActivity.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Classic App Icon (Portal Lock) -->
+        <activity-alias
+            android:name=".MainActivityClassic"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_classic"
+            android:roundIcon="@mipmap/ic_launcher_classic_round"
+            android:label="@string/app_name"
+            android:targetActivity=".view.mainActivity.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <activity
             android:name=".view.unlockScreenActivity.UnlockScreenActivity"

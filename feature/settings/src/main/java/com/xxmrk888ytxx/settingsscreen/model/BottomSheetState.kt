@@ -13,4 +13,8 @@ sealed interface BottomSheetState {
     data class SelectThemeDialog(
         val selectedThemeColor: Color? = AppSeedColors.RandomColor
     ) : BottomSheetState
+
+    data class SelectAppIconDialog(
+        val currentIconId: String = AppIcon.DEFAULT.id
+    ) : BottomSheetState
 }

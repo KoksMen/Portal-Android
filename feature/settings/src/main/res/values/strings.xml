@@ -47,4 +47,12 @@
     <string name="watch_dog_description">
         Helps the app stay online and quickly respond to device unlocking. Every 30 seconds, the system checks the app\'s status and, if it has been closed, automatically restarts its background services.\n\nIt is recommended to enable this feature only if you experience issues with the app running in the background, which is especially common on devices with aggressive background process management, such as Xiaomi, Huawei, Realme, or OnePlus. If everything works stably, there is no need to activate it. Please note that due to built-in Android optimization mechanisms, the check may trigger with slight delays, and the continuous operation of this service may slightly increase battery consumption.
     </string>
+    <string name="app_icon">App Icon</string>
+    <string name="choose_app_icon">Choose App Icon</string>
+    <string name="app_icon_anime_1_title">Portal Girl (Primary)</string>
+    <string name="app_icon_anime_1_desc">Default Anime Girl illustration</string>
+    <string name="app_icon_anime_2_title">Portal Girl (Alternative)</string>
+    <string name="app_icon_anime_2_desc">Alternative Anime Girl illustration</string>
+    <string name="app_icon_classic_title">Portal Classic</string>
+    <string name="app_icon_classic_desc">Original Portal lock &amp; shield icon</string>
 </resources>

@@ -11,4 +11,5 @@ data class PortalSettings(
     val isOnboardingPassed: Boolean,
     val themeColor: Color?,
     val isWatchDogEnabled: Boolean,
+    val appIconId: String = "default"
 )

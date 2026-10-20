@@ -8,5 +8,6 @@ data class ScreenState(
     val isRemovePairedClientsIfBiometricEnvironmentChangedEnabled: Boolean = false,
     val isUnsafeUnlockTypesDisabled: Boolean = false,
     val isWatchDogEnabled: Boolean = false,
-    val isBiometricAuthAvailable: Boolean = false
+    val isBiometricAuthAvailable: Boolean = false,
+    val currentAppIconId: String = AppIcon.DEFAULT.id
 )
