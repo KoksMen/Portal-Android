@@ -74,4 +74,6 @@
     <string name="device_id_title">Идентификатор устройства</string>
     <string name="device_identification">Идентификация устройства</string>
     <string name="unpair_device_bluetooth_desc">Разорвать сопряжение и удалить сохраненные сессии</string>
+    <string name="sha_256" translatable="false">SHA-256</string>
+    <string name="uuid_v4" translatable="false">UUID v4</string>
 </resources>

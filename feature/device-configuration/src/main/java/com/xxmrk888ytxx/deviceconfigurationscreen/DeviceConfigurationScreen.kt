@@ -84,9 +84,14 @@ import com.xxmrk888ytxx.deviceconfigurationscreen.model.ScreenState
 import com.xxmrk888ytxx.deviceconfigurationscreen.model.UnlockMethod
 import kotlinx.coroutines.flow.Flow
 
+private enum class IdentifierType {
+    SHA_256,
+    UUID_V4
+}
+
 private data class CertDetailsInfo(
     val title: String,
-    val type: String,
+    val type: IdentifierType,
     val value: String,
     val description: String? = null
 )
@@ -579,7 +584,7 @@ private fun ParameterRow(
 @Composable
 private fun SecurityAndMtlsCard(
     device: Device,
-    onShowInfo: (title: String, type: String, value: String, description: String?) -> Unit,
+    onShowInfo: (title: String, type: IdentifierType, value: String, description: String?) -> Unit,
     onCopy: (String) -> Unit
 ) {
     Card(
@@ -606,13 +611,13 @@ private fun SecurityAndMtlsCard(
                 SecurityIdentifierItemCard(
                     icon = R.drawable.key,
                     title = serverTitle,
-                    tag = "SHA-256",
+                    tag = stringResource(R.string.sha_256),
                     displayValue = serverDisplayFp,
                     fullValue = serverFp,
                     onInfoClick = {
                         onShowInfo(
                             serverCertModalTitle,
-                            "SHA-256",
+                            IdentifierType.SHA_256,
                             serverFp,
                             null
                         )
@@ -629,13 +634,13 @@ private fun SecurityAndMtlsCard(
                 SecurityIdentifierItemCard(
                     icon = R.drawable.smartphone,
                     title = clientTitle,
-                    tag = "SHA-256",
+                    tag = stringResource(R.string.sha_256),
                     displayValue = clientDisplayFp,
                     fullValue = clientFp,
                     onInfoClick = {
                         onShowInfo(
                             clientCertModalTitle,
-                            "SHA-256",
+                            IdentifierType.SHA_256,
                             clientFp,
                             null
                         )
@@ -652,13 +657,13 @@ private fun SecurityAndMtlsCard(
             SecurityIdentifierItemCard(
                 icon = R.drawable.fingerprint,
                 title = uuidTitle,
-                tag = "UUID v4",
+                tag = stringResource(R.string.uuid_v4),
                 displayValue = uuidDisplay,
                 fullValue = device.clientId,
                 onInfoClick = {
                     onShowInfo(
                         uuidModalTitle,
-                        "UUID v4",
+                        IdentifierType.UUID_V4,
                         device.clientId,
                         null
                     )
@@ -1253,7 +1258,10 @@ private fun CertificateDetailBottomSheet(
                             modifier = Modifier.padding(top = 2.dp)
                         ) {
                             Text(
-                                text = details.type,
+                                text = stringResource(
+                                    if (details.type == IdentifierType.UUID_V4) R.string.uuid_v4
+                                    else R.string.sha_256
+                                ),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontSize = 10.sp,
                                     fontFamily = FontFamily.Monospace,
@@ -1273,7 +1281,7 @@ private fun CertificateDetailBottomSheet(
             )
 
             // Content
-            val isUuid = details.type.contains("UUID", ignoreCase = true)
+            val isUuid = details.type == IdentifierType.UUID_V4
             val label = if (isUuid) {
                 stringResource(R.string.full_uuid)
             } else {
