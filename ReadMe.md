@@ -3,7 +3,7 @@
 </p>
 
 <h1 align="center">🔐 Portal-Android 🔐</h1>
-<h3 align="center">✨ Кодовое имя: <em>Camelia.2</em> (v2.4.0 / Code 53) ✨</h3>
+<h3 align="center">✨ Кодовое имя: <em>Camelia.3</em> (v2.4.0 / Code 54) ✨</h3>
 
 <p align="center">
   <b>Умный, безопасный и мгновенный беспроводной ключ для ПК на Android и Wear OS</b><br>
@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/KoksMen/Portal-Android/releases/latest"><img src="https://img.shields.io/badge/Version-Camelia.2-7c4dff?style=for-the-badge&logo=github&logoColor=white" alt="Portal-Android Camelia.2" /></a>
+  <a href="https://github.com/KoksMen/Portal-Android/releases/latest"><img src="https://img.shields.io/badge/Version-Camelia.3-7c4dff?style=for-the-badge&logo=github&logoColor=white" alt="Portal-Android Camelia.3" /></a>
   <img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.4.10" />
   <img src="https://img.shields.io/badge/Platform-Android%208.0%2B%20%7C%20Wear%20OS-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 8.0+ / Wear OS" />
   <a href="https://play.google.com/store/apps/details?id=com.xxmrk888ytxx.portal"><img src="https://img.shields.io/badge/Google%20Play-Portal%20Android-34A853?style=for-the-badge&logo=googleplay&logoColor=white" alt="Google Play" /></a>
@@ -29,7 +29,7 @@
 
 | Платформа / Platform | Источник / Source | Ссылка / Link |
 |:--------------------:|:-----------------:|:-------------:|
-| **Android & Wear OS (APK)** | GitHub Releases | [📥 Скачать последний APK (Camelia.2)](https://github.com/KoksMen/Portal-Android/releases/latest) |
+| **Android & Wear OS (APK)** | GitHub Releases | [📥 Скачать последний APK (Camelia.3)](https://github.com/KoksMen/Portal-Android/releases/latest) |
 | **Android & Wear OS** | Google Play Store | [🏪 Открыть в Google Play](https://play.google.com/store/apps/details?id=com.xxmrk888ytxx.portal) |
 | **PC Client (Windows)** | GitHub Releases | [💻 Скачать Portal-Windows](https://github.com/KoksMen/Portal-Windows/releases) |
 
@@ -44,8 +44,20 @@
 
 ---
 
-## ✨ Что нового в версии Camelia.2
+## ✨ Что нового в версии Camelia.3
 
+- **🎨 Динамическая смена иконок приложения (Dynamic App Icons):**
+  - Добавлен интерактивный выбор иконки приложения прямо в настройках («Внешний вид» -> «Иконка приложения»)!
+  - **7 уникальных вариантов оформления:**
+    - 🌟 **Portal Girl (Основная)**: новая главная иллюстрация (галстук, пучок, светящийся замок Portal) — установлена по умолчанию.
+    - 🛡 **Portal Girl (Тактическая)**: тактическая кибер-униформа агента безопасности.
+    - ✨ **Portal Girl (Минимализм)**: чистый векторный минимализм.
+    - 💜 **Portal Girl (Нежная)**: мягкая эстетичная иллюстрация с мягким светом.
+    - 🌆 **Portal Girl (Киберпанк)**: атмосферная темная неоновая иллюстрация.
+    - ☀️ **Portal Girl (Светлая)**: яркая дневная аниме-иллюстрация.
+    - 🔐 **Классическая (Portal)**: классический синий щит с замком Portal.
+  - **Идеальный белый squircle-фон:** все иконки переработаны с аккуратным белым скругленным фоном и адаптивными слоями для нативной интеграции с любыми Android-лаунчерами (Google Pixel, Samsung One UI, Xiaomi HyperOS, Nova Launcher).
+  - Переключение иконки на лету без необходимости перезапуска приложения.
 - **🎨 Строгий минимализм Material 3 (по дизайн-системе Stitch / Google Pixel):**
   - Полностью переработана визуальная иерархия всех ключевых экранов в соответствии с принципами чистоты интерфейса Google Pixel: лаконичные отступы, адаптивные карточки, современные закругления и отсутствие визуального шума.
 - **✨ Переработанный экран добавления устройства («Add Device»):**
@@ -139,8 +151,20 @@ Portal-Android
 
 ---
 
-## ✨ What's New in Camelia.2
+## ✨ What's New in Camelia.3
 
+- **🎨 Dynamic App Icon Selector:**
+  - Choose between 7 stylized app icons directly in Settings («Customization» -> «App Icon»)!
+  - **7 handcrafted icon choices:**
+    - 🌟 **Portal Girl (Primary)**: new primary Anime Girl illustration with white squircle background (tie, bun, glowing lock) — set as default.
+    - 🛡 **Portal Girl (Tactical)**: tactical cybersecurity agent outfit.
+    - ✨ **Portal Girl (Minimalist)**: clean flat vector aesthetic.
+    - 💜 **Portal Girl (Soft)**: soft delicate aesthetics with ambient lighting.
+    - 🌆 **Portal Girl (Cyberpunk)**: dark neon cyberpunk illustration.
+    - ☀️ **Portal Girl (Bright)**: bright daytime Anime Girl illustration.
+    - 🔐 **Portal Classic**: original shield & lock Portal icon.
+  - **Refined White Squircle Canvas:** all icons redesigned with clean rounded white squircle backgrounds and adaptive foregrounds, rendering flawlessly across all Android launchers (Google Pixel, Samsung One UI, Xiaomi HyperOS, Nova).
+  - Instant on-the-fly launcher switching without app restarts or launcher crashes.
 - **🎨 Minimalist Material 3 Design (Stitch / Google Pixel Aesthetic):**
   - Complete aesthetic redesign following strict minimalism: balanced padding, crisp typography, responsive card containers, and zero visual clutter.
 - **✨ Modernized "Add Device" Flow:**
