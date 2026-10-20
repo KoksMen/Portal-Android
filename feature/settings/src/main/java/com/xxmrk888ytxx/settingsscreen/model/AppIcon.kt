@@ -12,6 +12,30 @@ enum class AppIcon(
 ) {
     DEFAULT(
         id = "default",
+        titleRes = R.string.app_icon_main_title,
+        descriptionRes = R.string.app_icon_main_desc,
+        previewRes = R.drawable.app_icon_main_preview
+    ),
+    TACTICAL(
+        id = "tactical",
+        titleRes = R.string.app_icon_tactical_title,
+        descriptionRes = R.string.app_icon_tactical_desc,
+        previewRes = R.drawable.app_icon_tactical_preview
+    ),
+    MINIMAL(
+        id = "minimal",
+        titleRes = R.string.app_icon_minimal_title,
+        descriptionRes = R.string.app_icon_minimal_desc,
+        previewRes = R.drawable.app_icon_minimal_preview
+    ),
+    SOFT(
+        id = "soft",
+        titleRes = R.string.app_icon_soft_title,
+        descriptionRes = R.string.app_icon_soft_desc,
+        previewRes = R.drawable.app_icon_soft_preview
+    ),
+    ANIME_1(
+        id = "anime_1",
         titleRes = R.string.app_icon_anime_1_title,
         descriptionRes = R.string.app_icon_anime_1_desc,
         previewRes = R.drawable.app_icon_anime_1_preview

@@ -13,6 +13,10 @@ class AppIconManagerImpl @Inject constructor(
 
     private val aliases = mapOf(
         "default" to "com.xxmrk888ytxx.portal.MainActivityDefault",
+        "tactical" to "com.xxmrk888ytxx.portal.MainActivityTactical",
+        "minimal" to "com.xxmrk888ytxx.portal.MainActivityMinimal",
+        "soft" to "com.xxmrk888ytxx.portal.MainActivitySoft",
+        "anime_1" to "com.xxmrk888ytxx.portal.MainActivityAnime1",
         "anime_2" to "com.xxmrk888ytxx.portal.MainActivityAnime2",
         "classic" to "com.xxmrk888ytxx.portal.MainActivityClassic"
     )

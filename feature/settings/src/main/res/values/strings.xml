@@ -49,10 +49,18 @@
     </string>
     <string name="app_icon">App Icon</string>
     <string name="choose_app_icon">Choose App Icon</string>
-    <string name="app_icon_anime_1_title">Portal Girl (Primary)</string>
-    <string name="app_icon_anime_1_desc">Default Anime Girl illustration</string>
-    <string name="app_icon_anime_2_title">Portal Girl (Alternative)</string>
-    <string name="app_icon_anime_2_desc">Alternative Anime Girl illustration</string>
+    <string name="app_icon_main_title">Portal Girl (Primary)</string>
+    <string name="app_icon_main_desc">Primary Anime Girl illustration</string>
+    <string name="app_icon_tactical_title">Portal Girl (Tactical)</string>
+    <string name="app_icon_tactical_desc">Tactical cybersecurity Anime Girl</string>
+    <string name="app_icon_minimal_title">Portal Girl (Minimalist)</string>
+    <string name="app_icon_minimal_desc">Clean minimalist Anime Girl</string>
+    <string name="app_icon_soft_title">Portal Girl (Soft)</string>
+    <string name="app_icon_soft_desc">Soft aesthetics Anime Girl</string>
+    <string name="app_icon_anime_1_title">Portal Girl (Cyberpunk)</string>
+    <string name="app_icon_anime_1_desc">Cyberpunk Anime Girl illustration</string>
+    <string name="app_icon_anime_2_title">Portal Girl (Bright)</string>
+    <string name="app_icon_anime_2_desc">Bright Anime Girl illustration</string>
     <string name="app_icon_classic_title">Portal Classic</string>
     <string name="app_icon_classic_desc">Original Portal lock &amp; shield icon</string>
 </resources>
