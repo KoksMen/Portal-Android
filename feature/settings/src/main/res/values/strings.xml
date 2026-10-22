@@ -63,4 +63,14 @@
     <string name="app_icon_anime_2_desc">Bright Anime Girl illustration</string>
     <string name="app_icon_classic_title">Portal Classic</string>
     <string name="app_icon_classic_desc">Original Portal lock &amp; shield icon</string>
+    <string name="standard">Standard</string>
+    <string name="unlock_screen_style">Unlock Screen Style</string>
+    <string name="unlock_screen_style_desc">Appearance of the unlock confirmation window</string>
+    <string name="choose_unlock_screen_style">Choose Window Style</string>
+    <string name="unlock_screen_style_classic">Standard Theme</string>
+    <string name="unlock_screen_style_classic_desc">Original full screen (minimizes videos)</string>
+    <string name="unlock_screen_style_fullscreen">Adaptive Window</string>
+    <string name="unlock_screen_style_fullscreen_desc">Floating fullscreen window (does not minimize videos)</string>
+    <string name="unlock_screen_style_compact">Compact Mini-Window</string>
+    <string name="unlock_screen_style_compact_desc">Bottom sheet pop-up overlaying other apps</string>
 </resources>

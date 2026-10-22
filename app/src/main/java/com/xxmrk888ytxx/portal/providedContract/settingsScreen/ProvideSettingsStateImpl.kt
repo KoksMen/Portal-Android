@@ -33,4 +33,6 @@ class ProvideSettingsStateImpl @Inject constructor(
         get() = settingsRepository.portalSettings.map { it.themeColor }
     override val appIconId: Flow<String> =
         settingsRepository.portalSettings.map { it.appIconId }
+    override val unlockScreenStyle: Flow<String> =
+        settingsRepository.portalSettings.map { it.unlockScreenStyle }
 }

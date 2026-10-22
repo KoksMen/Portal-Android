@@ -10,4 +10,5 @@ interface ChangeSettingsContract {
     suspend fun updateWatchDogState(isEnabled: Boolean)
     suspend fun updateThemeColor(newColor: Color?)
     suspend fun updateAppIcon(iconId: String)
+    suspend fun updateUnlockScreenStyle(styleId: String)
 }

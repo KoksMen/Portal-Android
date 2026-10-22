@@ -23,6 +23,8 @@ sealed interface SettingsScreenEvent : UiEvent {
     data object OnThemeClicked : SettingsScreenEvent
     data object OnAppIconClicked : SettingsScreenEvent
     data class OnAppIconSelected(val newIconId: String) : SettingsScreenEvent
+    data object OnUnlockScreenStyleClicked : SettingsScreenEvent
+    data class OnUnlockScreenStyleSelected(val newStyleId: String) : SettingsScreenEvent
     data object OnDownloadPcClientClicked : SettingsScreenEvent
     data object OpenTroubleshootingLink : SettingsScreenEvent
 }

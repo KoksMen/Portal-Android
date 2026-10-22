@@ -39,6 +39,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private val themeColorKey = longPreferencesKey("theme_color")
     private val watchDogEnabledKey = booleanPreferencesKey("watch_dog_enabled")
     private val appIconKey = stringPreferencesKey("app_icon_key")
+    private val unlockScreenStyleKey = stringPreferencesKey("unlock_screen_style")
 
 
     override val portalSettings: Flow<PortalSettings> = combine<Any?, PortalSettings>(
@@ -50,7 +51,8 @@ class SettingsRepositoryImpl @Inject constructor(
         preferencesStorage.getProperty(isOnboardingPassedKey, false),
         preferencesStorage.getPropertyOrNull(themeColorKey),
         preferencesStorage.getProperty(watchDogEnabledKey, false),
-        preferencesStorage.getProperty(appIconKey, "default")
+        preferencesStorage.getProperty(appIconKey, "default"),
+        preferencesStorage.getProperty(unlockScreenStyleKey, "classic")
     ) { flowArray ->
         val biometricAuthEnabled = flowArray[0] as Boolean
         val additionalPasswordAuthEnabled = flowArray[1] as Boolean
@@ -61,6 +63,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val themeColor = flowArray[6] as Long?
         val isWatchDogEnabled = flowArray[7] as Boolean
         val appIconId = flowArray[8] as String
+        val unlockScreenStyle = flowArray[9] as String
 
         PortalSettings(
             isBiometricAuthEnabled = biometricAuthEnabled,
@@ -71,7 +74,8 @@ class SettingsRepositoryImpl @Inject constructor(
             isOnboardingPassed = isOnboardingPassed,
             themeColor = if (themeColor == null) null else Color(value = themeColor.toULong()),
             isWatchDogEnabled = isWatchDogEnabled,
-            appIconId = appIconId
+            appIconId = appIconId,
+            unlockScreenStyle = unlockScreenStyle
         )
     }
 
@@ -141,5 +145,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun updateAppIconId(iconId: String) = withContext(Dispatchers.IO) {
         preferencesStorage.writeProperty(appIconKey, iconId)
         appIconManager.setAppIcon(iconId)
+    }
+
+    override suspend fun updateUnlockScreenStyle(styleId: String) = withContext(Dispatchers.IO) {
+        preferencesStorage.writeProperty(unlockScreenStyleKey, styleId)
     }
 }

@@ -140,6 +140,7 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- Classic / Standard Fullscreen Unlock Screen (Theme.Portal: 100% full screen, occludes background, minimizes videos) -->
         <activity
             android:name=".view.unlockScreenActivity.UnlockScreenActivity"
             android:excludeFromRecents="true"
@@ -149,6 +150,22 @@
             android:showForAllUsers="true"
             android:launchMode="singleInstance"
             android:theme="@style/Theme.Portal">
+            <intent-filter>
+                <action android:name="com.xxmrk888ytxx.portal.UNLOCK_REQUEST_FROM_PC" />
+            </intent-filter>
+        </activity>
+
+        <!-- Floating / Adaptive Unlock Screen (Theme.Portal.UnlockScreen: floating dialog, does not minimize videos) -->
+        <activity
+            android:name=".view.unlockScreenActivity.FloatingUnlockScreenActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity="com.xxmrk888ytxx.portal.task.FloatingUnlockScreenActivity"
+            android:showForAllUsers="true"
+            android:launchMode="singleInstance"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:theme="@style/Theme.Portal.UnlockScreen">
             <intent-filter>
                 <action android:name="com.xxmrk888ytxx.portal.UNLOCK_REQUEST_FROM_PC" />
             </intent-filter>

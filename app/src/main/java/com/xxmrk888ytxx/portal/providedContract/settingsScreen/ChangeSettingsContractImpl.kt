@@ -35,4 +35,8 @@ class ChangeSettingsContractImpl @Inject constructor(
     override suspend fun updateAppIcon(iconId: String) {
         settingsRepository.updateAppIconId(iconId)
     }
+
+    override suspend fun updateUnlockScreenStyle(styleId: String) {
+        settingsRepository.updateUnlockScreenStyle(styleId)
+    }
 }

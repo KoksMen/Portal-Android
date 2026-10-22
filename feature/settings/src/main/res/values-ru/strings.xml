@@ -59,4 +59,14 @@
     <string name="app_icon_anime_2_desc">Светлая аниме-иллюстрация</string>
     <string name="app_icon_classic_title">Классическая (Portal)</string>
     <string name="app_icon_classic_desc">Оригинальная иконка с замком и щитом</string>
+    <string name="standard">Стандартная</string>
+    <string name="unlock_screen_style">Стиль экрана разблокировки</string>
+    <string name="unlock_screen_style_desc">Внешний вид окна подтверждения входа</string>
+    <string name="choose_unlock_screen_style">Выбор стиля окна</string>
+    <string name="unlock_screen_style_classic">Стандартная тема</string>
+    <string name="unlock_screen_style_classic_desc">Оригинальный полный экран (сворачивает видео)</string>
+    <string name="unlock_screen_style_fullscreen">Адаптивное окно</string>
+    <string name="unlock_screen_style_fullscreen_desc">Плавающее окно на весь экран (не сворачивает видео)</string>
+    <string name="unlock_screen_style_compact">Компактное мини-окно</string>
+    <string name="unlock_screen_style_compact_desc">Всплывающая снизу шторка поверх приложений</string>
 </resources>
