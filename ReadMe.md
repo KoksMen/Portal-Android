@@ -3,7 +3,7 @@
 </p>
 
 <h1 align="center">🔐 Portal-Android 🔐</h1>
-<h3 align="center">✨ Кодовое имя: <em>Camelia.3</em> (v2.4.0 / Code 54) ✨</h3>
+<h3 align="center">✨ Кодовое имя: <em>Camelia.4</em> (v2.4.0 / Code 56) ✨</h3>
 
 <p align="center">
   <b>Умный, безопасный и мгновенный беспроводной ключ для ПК на Android и Wear OS</b><br>
@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/KoksMen/Portal-Android/releases/latest"><img src="https://img.shields.io/badge/Version-Camelia.3-7c4dff?style=for-the-badge&logo=github&logoColor=white" alt="Portal-Android Camelia.3" /></a>
+  <a href="https://github.com/KoksMen/Portal-Android/releases/latest"><img src="https://img.shields.io/badge/Version-Camelia.4-7c4dff?style=for-the-badge&logo=github&logoColor=white" alt="Portal-Android Camelia.4" /></a>
   <img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.4.10" />
   <img src="https://img.shields.io/badge/Platform-Android%208.0%2B%20%7C%20Wear%20OS-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 8.0+ / Wear OS" />
   <a href="https://play.google.com/store/apps/details?id=com.xxmrk888ytxx.portal"><img src="https://img.shields.io/badge/Google%20Play-Portal%20Android-34A853?style=for-the-badge&logo=googleplay&logoColor=white" alt="Google Play" /></a>
@@ -29,7 +29,7 @@
 
 | Платформа / Platform | Источник / Source | Ссылка / Link |
 |:--------------------:|:-----------------:|:-------------:|
-| **Android & Wear OS (APK)** | GitHub Releases | [📥 Скачать последний APK (Camelia.3)](https://github.com/KoksMen/Portal-Android/releases/latest) |
+| **Android & Wear OS (APK)** | GitHub Releases | [📥 Скачать последний APK (Camelia.4)](https://github.com/KoksMen/Portal-Android/releases/latest) |
 | **Android & Wear OS** | Google Play Store | [🏪 Открыть в Google Play](https://play.google.com/store/apps/details?id=com.xxmrk888ytxx.portal) |
 | **PC Client (Windows)** | GitHub Releases | [💻 Скачать Portal-Windows](https://github.com/KoksMen/Portal-Windows/releases) |
 
@@ -41,6 +41,21 @@
 
 > [!IMPORTANT]
 > Для работы приложения необходимо установить Windows-клиент на ваш ПК: [**Portal-Windows**](https://github.com/KoksMen/Portal-Windows/releases).
+
+---
+
+## ✨ Что нового в версии Camelia.4
+
+- **🔓 3 режима экрана разблокировки (Unlock Screen Styles):**
+  - Добавлен выбор стиля экрана разблокировки прямо в настройках («Внешний вид» -> «Стиль экрана разблокировки»):
+    - 📺 **«Стандартный (полный экран)»** *(по умолчанию)*: 100% классический полноэкранный интерфейс с оригинальной разметкой (крупное имя ПК по центру, фирменный сквиркл 64dp, оригинальные отступы). Работает как стандартная полноэкранная активность ОС (@style/Theme.Portal), перекрывая другие окна и автоматически сворачивая полноэкранные видеоплееры (YouTube и др.).
+    - 🪟 **«Адаптивное окно»**: плавающее полупрозрачное диалоговое окно (@style/Theme.Portal.UnlockScreen) на 96% экрана с затемнением фона (45%). Не сворачивает видео в других приложениях! Автоматически адаптируется под поворот экрана: элегантный вертикальный вид и удобный двухколоночный режим в ландшафтной ориентации.
+    - 📱 **«Компактное мини-окно»**: аккуратная плашка в стиле **Google Fast Pair**, всплывающая снизу экрана. Показывает тип подключения (Wi-Fi / Bluetooth), имя устройства и эргономичный блок кнопок действий («Отложить», «Отклонить», «Разрешить вход»). Также адаптирована для горизонтальной ориентации и не прерывает фоновое воспроизведение видео.
+- **⚡ Нативная системная изоляция активностей:**
+  - Реализованы две специализированные активности (UnlockScreenActivity и FloatingUnlockScreenActivity) с динамической маршрутизацией в UnlockRequestManagerImpl. Это гарантирует строгое соблюдение правил оконного менеджера Android и сохранение фонового воспроизведения медиа.
+- **🛠 Улучшения стабильности и темы:**
+  - В диалоге выбора темы приложения добавлена опция «Стандартная».
+  - Полная поддержка плавной анимации и адаптивных форм Material 3.
 
 ---
 
@@ -148,6 +163,21 @@ Portal-Android
 
 > [!IMPORTANT]
 > To use Portal, the Windows desktop client must be running on your computer: [**Portal-Windows**](https://github.com/KoksMen/Portal-Windows/releases).
+
+---
+
+## ✨ What's New in Camelia.4
+
+- **🔓 3 Unlock Screen Styles:**
+  - Customize the inbound unlock confirmation experience directly in Settings («Customization» -> «Unlock Screen Style»):
+    - 📺 **«Standard (Full Screen)»** *(Default)*: 100% authentic original fullscreen layout (prominent centered PC name, signature 64dp lock squircle, original spacing and ergonomics). Configured as an opaque fullscreen Android Activity (@style/Theme.Portal), seamlessly minimizing fullscreen video players (YouTube, etc.) upon trigger.
+    - 🪟 **«Adaptive Window»**: Translucent floating dialog (@style/Theme.Portal.UnlockScreen) covering 96% of the screen with a subtle 45% background dim. Does NOT minimize background videos! Fully adaptive with portrait and 2-column landscape responsive layouts.
+    - 📱 **«Compact Mini-Window»**: Clean, modern bottom sheet styled after **Google Fast Pair**. Displays connection badge (Wi-Fi / Bluetooth), device name, and comfortable one-handed action buttons («Delay», «Deny», «Allow»). Keeps background videos playing and adapts smoothly to landscape orientation.
+- **⚡ Native Window Manager Routing:**
+  - Implemented decoupled Activity architecture (UnlockScreenActivity vs FloatingUnlockScreenActivity) routed via UnlockRequestManagerImpl to strictly respect Android OS window flags and PiP behavior.
+- **🛠 Stability & UI Polish:**
+  - Added 'Standard' theme option in the theme picker dialog.
+  - Full Material 3 Expressive responsiveness and edge-to-edge support.
 
 ---
 
