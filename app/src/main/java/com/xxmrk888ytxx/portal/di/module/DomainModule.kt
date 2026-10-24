@@ -1,5 +1,12 @@
 package com.xxmrk888ytxx.portal.di.module
 
+import com.xxmrk888ytxx.portal.data.ActiveUnlockTrackerImpl
+import com.xxmrk888ytxx.portal.data.KeepAliveManagerImpl
+import com.xxmrk888ytxx.portal.data.WakeLockManagerImpl
+import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
+import com.xxmrk888ytxx.portal.domain.KeepAliveManager
+import com.xxmrk888ytxx.portal.domain.WakeLockManager
+
 import android.content.Context
 import com.xxmrk888ytxx.mainscreen.contract.SettingsProvider
 import com.xxmrk888ytxx.portal.data.AppIconManagerImpl
@@ -258,6 +265,24 @@ interface DomainModule {
 
     @Binds
     @AppScope
+    fun bindsKeepAliveManager(
+        keepAliveManagerImpl: KeepAliveManagerImpl
+    ): KeepAliveManager
+
+    @Binds
+    @AppScope
+    fun bindsWakeLockManager(
+        wakeLockManagerImpl: WakeLockManagerImpl
+    ): WakeLockManager
+
+    @Binds
+    @AppScope
+    fun bindsActiveUnlockTracker(
+        activeUnlockTrackerImpl: ActiveUnlockTrackerImpl
+    ): ActiveUnlockTracker
+
+    @Binds
+    @AppScope
     fun bindsWatchDogManager(
         watchDogManagerImpl: WatchDogManagerImpl
     ) : WatchDogManager
@@ -285,6 +310,7 @@ interface DomainModule {
     fun bindsIncomingUnlockDecisionCoordinator(
         incomingUnlockDecisionCoordinatorImpl: IncomingUnlockDecisionCoordinatorImpl
     ): IncomingUnlockDecisionCoordinator
+
 
     companion object {
 

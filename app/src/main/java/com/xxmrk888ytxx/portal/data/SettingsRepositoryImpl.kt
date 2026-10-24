@@ -39,7 +39,15 @@ class SettingsRepositoryImpl @Inject constructor(
     private val themeColorKey = longPreferencesKey("theme_color")
     private val watchDogEnabledKey = booleanPreferencesKey("watch_dog_enabled")
     private val appIconKey = stringPreferencesKey("app_icon_key")
+    private val customAppIconPathKey = stringPreferencesKey("custom_app_icon_path")
     private val unlockScreenStyleKey = stringPreferencesKey("unlock_screen_style")
+    private val autoBiometricOnNotificationKey = booleanPreferencesKey("auto_biometric_on_notification")
+    private val backgroundServiceEnabledKey = booleanPreferencesKey("background_service_enabled")
+    private val wakeLockEnabledKey = booleanPreferencesKey("wake_lock_enabled")
+    private val watchDogFastCheckEnabledKey = booleanPreferencesKey("watch_dog_fast_check_enabled")
+    private val watchDogAlarmClockEnabledKey = booleanPreferencesKey("watch_dog_alarm_clock_enabled")
+    private val type1UnlockTimeoutMinutesKey = intPreferencesKey("type1_unlock_timeout_minutes")
+    private val type2IncomingConflictBehaviorKey = stringPreferencesKey("type2_incoming_conflict_behavior")
 
 
     override val portalSettings: Flow<PortalSettings> = combine<Any?, PortalSettings>(
@@ -52,7 +60,15 @@ class SettingsRepositoryImpl @Inject constructor(
         preferencesStorage.getPropertyOrNull(themeColorKey),
         preferencesStorage.getProperty(watchDogEnabledKey, false),
         preferencesStorage.getProperty(appIconKey, "default"),
-        preferencesStorage.getProperty(unlockScreenStyleKey, "classic")
+        preferencesStorage.getProperty(unlockScreenStyleKey, "classic"),
+        preferencesStorage.getPropertyOrNull(customAppIconPathKey),
+        preferencesStorage.getProperty(autoBiometricOnNotificationKey, false),
+        preferencesStorage.getProperty(backgroundServiceEnabledKey, false),
+        preferencesStorage.getProperty(wakeLockEnabledKey, false),
+        preferencesStorage.getProperty(watchDogFastCheckEnabledKey, true),
+        preferencesStorage.getProperty(watchDogAlarmClockEnabledKey, true),
+        preferencesStorage.getProperty(type1UnlockTimeoutMinutesKey, 6),
+        preferencesStorage.getProperty(type2IncomingConflictBehaviorKey, "show")
     ) { flowArray ->
         val biometricAuthEnabled = flowArray[0] as Boolean
         val additionalPasswordAuthEnabled = flowArray[1] as Boolean
@@ -64,6 +80,14 @@ class SettingsRepositoryImpl @Inject constructor(
         val isWatchDogEnabled = flowArray[7] as Boolean
         val appIconId = flowArray[8] as String
         val unlockScreenStyle = flowArray[9] as String
+        val customAppIconPath = flowArray[10] as String?
+        val isAutoBiometricOnNotificationEnabled = flowArray[11] as Boolean
+        val isBackgroundServiceEnabled = flowArray[12] as Boolean
+        val isWakeLockEnabled = flowArray[13] as Boolean
+        val isWatchDogFastCheckEnabled = flowArray[14] as Boolean
+        val isWatchDogAlarmClockEnabled = flowArray[15] as Boolean
+        val type1UnlockTimeoutMinutes = flowArray[16] as Int
+        val type2IncomingConflictBehavior = flowArray[17] as String
 
         PortalSettings(
             isBiometricAuthEnabled = biometricAuthEnabled,
@@ -75,7 +99,15 @@ class SettingsRepositoryImpl @Inject constructor(
             themeColor = if (themeColor == null) null else Color(value = themeColor.toULong()),
             isWatchDogEnabled = isWatchDogEnabled,
             appIconId = appIconId,
-            unlockScreenStyle = unlockScreenStyle
+            customAppIconPath = customAppIconPath ?: appIconManager.getCustomAppIconFile()?.absolutePath,
+            unlockScreenStyle = unlockScreenStyle,
+            isAutoBiometricOnNotificationEnabled = isAutoBiometricOnNotificationEnabled,
+            isBackgroundServiceEnabled = isBackgroundServiceEnabled,
+            isWakeLockEnabled = isWakeLockEnabled,
+            isWatchDogFastCheckEnabled = isWatchDogFastCheckEnabled,
+            isWatchDogAlarmClockEnabled = isWatchDogAlarmClockEnabled,
+            type1UnlockTimeoutMinutes = type1UnlockTimeoutMinutes,
+            type2IncomingConflictBehavior = type2IncomingConflictBehavior
         )
     }
 
@@ -149,5 +181,41 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateUnlockScreenStyle(styleId: String) = withContext(Dispatchers.IO) {
         preferencesStorage.writeProperty(unlockScreenStyleKey, styleId)
+    }
+
+    override suspend fun updateAutoBiometricOnNotificationEnabled(isEnabled: Boolean) = withContext(Dispatchers.IO) {
+        preferencesStorage.writeProperty(autoBiometricOnNotificationKey, isEnabled)
+    }
+
+    override suspend fun updateCustomAppIconPath(path: String?) = withContext(Dispatchers.IO) {
+        if (path == null) {
+            preferencesStorage.removeProperty(customAppIconPathKey)
+        } else {
+            preferencesStorage.writeProperty(customAppIconPathKey, path)
+        }
+    }
+
+    override suspend fun updateBackgroundServiceEnabled(isEnabled: Boolean) = withContext(Dispatchers.IO) {
+        preferencesStorage.writeProperty(backgroundServiceEnabledKey, isEnabled)
+    }
+
+    override suspend fun updateWakeLockEnabled(isEnabled: Boolean) = withContext(Dispatchers.IO) {
+        preferencesStorage.writeProperty(wakeLockEnabledKey, isEnabled)
+    }
+
+    override suspend fun updateWatchDogFastCheckEnabled(isEnabled: Boolean) = withContext(Dispatchers.IO) {
+        preferencesStorage.writeProperty(watchDogFastCheckEnabledKey, isEnabled)
+    }
+
+    override suspend fun updateWatchDogAlarmClockEnabled(isEnabled: Boolean) = withContext(Dispatchers.IO) {
+        preferencesStorage.writeProperty(watchDogAlarmClockEnabledKey, isEnabled)
+    }
+
+    override suspend fun updateType1UnlockTimeoutMinutes(minutes: Int) = withContext(Dispatchers.IO) {
+        preferencesStorage.writeProperty(type1UnlockTimeoutMinutesKey, minutes)
+    }
+
+    override suspend fun updateType2IncomingConflictBehavior(behavior: String) = withContext(Dispatchers.IO) {
+        preferencesStorage.writeProperty(type2IncomingConflictBehaviorKey, behavior)
     }
 }

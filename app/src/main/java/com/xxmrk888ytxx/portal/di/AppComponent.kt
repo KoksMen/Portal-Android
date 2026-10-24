@@ -56,6 +56,11 @@ interface AppComponent {
     val unsafeUnlockTypesStateObserver: UnsafeUnlockTypesStateObserver
     val watchDogManager: WatchDogManager
     val wearDeviceSyncManager: WearDeviceSyncManager
+    val keepAliveManager: com.xxmrk888ytxx.portal.domain.KeepAliveManager
+    val wakeLockManager: com.xxmrk888ytxx.portal.domain.WakeLockManager
+    val activeUnlockTracker: com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
+    val watchDogAlarmController: com.xxmrk888ytxx.portal.domain.WatchDogAlarmController
+    val settingsRepository: com.xxmrk888ytxx.portal.domain.SettingsRepository
 
     @Component.Factory
     interface Factory {

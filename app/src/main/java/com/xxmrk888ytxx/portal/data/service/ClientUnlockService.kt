@@ -8,8 +8,12 @@ import android.os.Build
 import android.os.IBinder
 import com.xxmrk888ytxx.coreandroid.fastDebugLog
 import com.xxmrk888ytxx.portal.data.service.model.ClientUnlockServiceParams
+import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
 import com.xxmrk888ytxx.portal.domain.BluetoothDeviceRepository
 import com.xxmrk888ytxx.portal.domain.DeviceUnlockManager
+import com.xxmrk888ytxx.portal.domain.SettingsRepository
+import com.xxmrk888ytxx.portal.domain.UnlockRequestHandler
+import com.xxmrk888ytxx.portal.domain.WakeLockManager
 import com.xxmrk888ytxx.portal.domain.WOLManager
 import com.xxmrk888ytxx.portal.domain.WifiDeviceRepository
 import com.xxmrk888ytxx.portal.domain.model.BluetoothDevice
@@ -29,7 +33,11 @@ abstract class ClientUnlockService(
     private val wolManager: WOLManager,
     private val deviceUnlockManager: DeviceUnlockManager,
     private val wifiDeviceRepository: WifiDeviceRepository,
-    private val bluetoothDeviceRepository: BluetoothDeviceRepository
+    private val bluetoothDeviceRepository: BluetoothDeviceRepository,
+    private val activeUnlockTracker: ActiveUnlockTracker,
+    private val wakeLockManager: WakeLockManager,
+    private val settingsRepository: SettingsRepository,
+    private val unlockRequestHandler: dagger.Lazy<UnlockRequestHandler>
 ) : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -51,7 +59,7 @@ abstract class ClientUnlockService(
             return START_NOT_STICKY
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE)
+            startForeground(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         } else {
             startForeground(notificationId, notification)
         }
@@ -62,39 +70,60 @@ abstract class ClientUnlockService(
     }
 
     private suspend fun handleUnlock(clientUnlockServiceParams: ClientUnlockServiceParams) {
-        val wifiDevice =
-            wifiDeviceRepository.getDeviceById(clientUnlockServiceParams.clientId).first()
-        val bluetoothDevice =
-            bluetoothDeviceRepository.getDeviceById(clientUnlockServiceParams.clientId).first()
+        val clientId = clientUnlockServiceParams.clientId
+        val timeoutMinutes = settingsRepository.portalSettings.first().type1UnlockTimeoutMinutes
+        val timeoutMillis = (timeoutMinutes * 60 * 1000L).coerceAtLeast(60_000L)
+        val wakeLockTag = "ClientUnlockService:$clientId"
 
+        activeUnlockTracker.registerType1Unlock(clientId)
+        wakeLockManager.acquireWakeLock(wakeLockTag)
+        var unlockSucceeded = false
+        try {
+            val wifiDevice = wifiDeviceRepository.getDeviceById(clientId).first()
+            val bluetoothDevice = bluetoothDeviceRepository.getDeviceById(clientId).first()
 
-        when {
-            wifiDevice != null -> doUnlockWifiDevice(wifiDevice, clientUnlockServiceParams)
-            bluetoothDevice != null -> unlockBluetoothDevice(
-                bluetoothDevice,
-                clientUnlockServiceParams
-            )
-
-            else -> fastDebugLog("Device where id = ${clientUnlockServiceParams.clientId} doesn't exist. $this Skip ")
+            when {
+                wifiDevice != null -> {
+                    unlockSucceeded = doUnlockWifiDevice(wifiDevice, clientUnlockServiceParams, timeoutMillis)
+                }
+                bluetoothDevice != null -> {
+                    unlockSucceeded = unlockBluetoothDevice(bluetoothDevice, clientUnlockServiceParams, timeoutMillis)
+                }
+                else -> {
+                    fastDebugLog("Device where id = $clientId doesn't exist. $this Skip ")
+                }
+            }
+        } finally {
+            wakeLockManager.releaseWakeLock(wakeLockTag)
+            activeUnlockTracker.unregisterType1Unlock(clientId, unlockSucceeded)
+            if (!unlockSucceeded) {
+                val deferredRequest = activeUnlockTracker.pollDeferredType2Request(clientId)
+                if (deferredRequest != null) {
+                    fastDebugLog("Dispatching deferred Type 2 request for $clientId after Type 1 unlock finished")
+                    unlockRequestHandler.get().onNewRequest(clientId, deferredRequest)
+                }
+            }
         }
     }
 
     private suspend fun unlockBluetoothDevice(
         bluetoothDevice: BluetoothDevice,
-        clientUnlockServiceParams: ClientUnlockServiceParams
-    ) {
-        doUnlock(clientUnlockServiceParams) { tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams) }
+        clientUnlockServiceParams: ClientUnlockServiceParams,
+        timeoutMillis: Long
+    ): Boolean {
+        return doUnlock(clientUnlockServiceParams, timeoutMillis) { tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams) }
     }
 
     private suspend fun doUnlockWifiDevice(
         wifiDevice: WifiDevice,
-        clientUnlockServiceParams: ClientUnlockServiceParams
-    ) {
+        clientUnlockServiceParams: ClientUnlockServiceParams,
+        timeoutMillis: Long
+    ): Boolean {
         val macAddress = wifiDevice.wolMacAddress
         if (macAddress == null) {
             fastDebugLog("Mac address is null. WOL unavailable for deviceId ${wifiDevice.clientId} ")
         }
-        doUnlock(clientUnlockServiceParams) {
+        return doUnlock(clientUnlockServiceParams, timeoutMillis) {
             tryWifiDeviceUnlock(
                 wifiDevice = wifiDevice,
                 macAddress = macAddress,
@@ -105,13 +134,16 @@ abstract class ClientUnlockService(
 
     private suspend fun doUnlock(
         clientUnlockServiceParams: ClientUnlockServiceParams,
+        timeoutMillis: Long,
         unlockBlock: suspend () -> Boolean
-    ) {
-        withTimeoutOrNull(WOL_UNLOCK_TIMEOUT_MILLS) {
+    ): Boolean {
+        var isSuccess = false
+        withTimeoutOrNull(timeoutMillis) {
             do {
                 val isUnlockSuccessful = unlockBlock()
                 if (isUnlockSuccessful) {
                     fastDebugLog("Unlock success. Stop $this")
+                    isSuccess = true
                     return@withTimeoutOrNull
                 } else {
                     fastDebugLog("Unlock failed. Restart $this")
@@ -119,6 +151,7 @@ abstract class ClientUnlockService(
                 }
             } while (isActive && clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout)
         } ?: fastDebugLog("Unlock timeout. Stop $this")
+        return isSuccess
     }
 
     private suspend fun tryWifiDeviceUnlock(
@@ -167,6 +200,6 @@ abstract class ClientUnlockService(
     companion object {
         const val CLIENT_UNLOCK_SERVICE_PARAMS_KEY = "CLIENT_UNLOCK_SERVICE_PARAMS_KEY"
         const val RETRY_UNLOCK_TIMEOUT = 2000L
-        const val WOL_UNLOCK_TIMEOUT_MILLS = 170_000L
+        const val WOL_UNLOCK_TIMEOUT_MILLS = 360_000L
     }
 }

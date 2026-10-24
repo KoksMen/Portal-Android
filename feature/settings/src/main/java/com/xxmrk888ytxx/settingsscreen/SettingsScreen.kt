@@ -1,6 +1,9 @@
 package com.xxmrk888ytxx.settingsscreen
 
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -35,6 +38,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -83,6 +87,7 @@ import com.xxmrk888ytxx.settingsscreen.model.ScreenState
 import com.xxmrk888ytxx.settingsscreen.model.SettingsScreenEvent
 import com.xxmrk888ytxx.settingsscreen.model.SettingsScreenEvent.ConfirmSecurityChanges
 import com.xxmrk888ytxx.settingsscreen.model.SettingsScreenSideEffect
+import java.io.File
 import kotlinx.coroutines.flow.Flow
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -155,6 +160,17 @@ fun SettingsScreen(
                 )
 
                 SettingsSwitchItem(
+                    title = stringResource(R.string.auto_biometric_on_notification_title),
+                    subtitle = stringResource(R.string.auto_biometric_on_notification_desc),
+                    iconRes = R.drawable.fingerprint,
+                    checked = screenState.isAutoBiometricOnNotificationEnabled,
+                    enabled = screenState.isBiometricProtectionEnabled,
+                    onCheckedChange = { isChecked ->
+                        onEvent(SettingsScreenEvent.OnAutoBiometricOnNotificationChanged(isChecked))
+                    }
+                )
+
+                SettingsSwitchItem(
                     title = stringResource(R.string.prohibit_insecure_unlock_methods),
                     subtitle = stringResource(R.string.the_automatically_unlock_method_will_be_disabled_for_devices_where_this_unlock_method_is_currently_set_it_will_be_changed_to_notification),
                     iconRes = R.drawable.insecure,
@@ -206,6 +222,24 @@ fun SettingsScreen(
                     onEvent(SettingsScreenEvent.OnAppIconClicked)
                 }
 
+                val customShortcutPhotoPickerLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.PickVisualMedia()
+                ) { uri ->
+                    if (uri != null) {
+                        onEvent(SettingsScreenEvent.OnCustomAppIconPicked(uri.toString()))
+                    }
+                }
+
+                SettingsItem(
+                    title = stringResource(R.string.app_shortcut_custom_title),
+                    subtitle = stringResource(R.string.app_shortcut_custom_desc),
+                    iconRes = R.drawable.push_pin
+                ) {
+                    customShortcutPhotoPickerLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                }
+
                 val currentUnlockScreenStyle = UnlockScreenStyle.fromId(screenState.unlockScreenStyle)
                 SettingsItem(
                     title = stringResource(R.string.unlock_screen_style),
@@ -217,12 +251,24 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(24.dp))
 
-            SettingsSection(stringResource(R.string.troubleshooting)) {
-                SettingsItem(
-                    title = stringResource(R.string.solutions_for_common_issues),
-                    iconRes = R.drawable.troubleshoot,
-                    onClick = {
-                        onEvent(SettingsScreenEvent.OpenTroubleshootingLink)
+            SettingsSection(stringResource(R.string.background_and_reliability)) {
+                SettingsSwitchItem(
+                    title = stringResource(R.string.background_service_title),
+                    subtitle = stringResource(R.string.background_service_desc),
+                    iconRes = R.drawable.bolt,
+                    checked = screenState.isBackgroundServiceEnabled,
+                    onCheckedChange = { isChecked ->
+                        onEvent(SettingsScreenEvent.OnBackgroundServiceStateChanged(isChecked))
+                    }
+                )
+
+                SettingsSwitchItem(
+                    title = stringResource(R.string.wakelock_title),
+                    subtitle = stringResource(R.string.wakelock_desc),
+                    iconRes = R.drawable.memory,
+                    checked = screenState.isWakeLockEnabled,
+                    onCheckedChange = { isChecked ->
+                        onEvent(SettingsScreenEvent.OnWakeLockStateChanged(isChecked))
                     }
                 )
 
@@ -234,6 +280,53 @@ fun SettingsScreen(
                     isExpandable = true,
                     onCheckedChange = { isChecked ->
                         onEvent(SettingsScreenEvent.OnWatchDogStateChanged(isChecked))
+                    }
+                )
+
+                AnimatedVisibility(visible = screenState.isWatchDogEnabled) {
+                    Column(modifier = Modifier.padding(start = 16.dp)) {
+                        SettingsSwitchItem(
+                            title = stringResource(R.string.watchdog_fast_check_title),
+                            subtitle = stringResource(R.string.watchdog_fast_check_desc),
+                            iconRes = R.drawable.timer,
+                            checked = screenState.isWatchDogFastCheckEnabled,
+                            onCheckedChange = { isChecked ->
+                                onEvent(SettingsScreenEvent.OnWatchDogFastCheckStateChanged(isChecked))
+                            }
+                        )
+
+                        SettingsSwitchItem(
+                            title = stringResource(R.string.watchdog_alarm_clock_title),
+                            subtitle = stringResource(R.string.watchdog_alarm_clock_desc),
+                            iconRes = R.drawable.visibility,
+                            checked = screenState.isWatchDogAlarmClockEnabled,
+                            onCheckedChange = { isChecked ->
+                                onEvent(SettingsScreenEvent.OnWatchDogAlarmClockStateChanged(isChecked))
+                            }
+                        )
+                    }
+                }
+
+                SettingsItem(
+                    title = stringResource(R.string.type1_timeout_title),
+                    subtitle = stringResource(R.string.type1_timeout_desc, screenState.type1UnlockTimeoutMinutes),
+                    iconRes = R.drawable.timer,
+                    onClick = {
+                        onEvent(SettingsScreenEvent.OnType1TimeoutClicked)
+                    }
+                )
+
+                val conflictSubtitle = when (screenState.type2IncomingConflictBehavior) {
+                    "defer" -> stringResource(R.string.conflict_behavior_defer_title)
+                    "reject" -> stringResource(R.string.conflict_behavior_reject_title)
+                    else -> stringResource(R.string.conflict_behavior_show_title)
+                }
+                SettingsItem(
+                    title = stringResource(R.string.type2_conflict_title),
+                    subtitle = conflictSubtitle,
+                    iconRes = R.drawable.swap_calls,
+                    onClick = {
+                        onEvent(SettingsScreenEvent.OnType2ConflictClicked)
                     }
                 )
             }
@@ -335,6 +428,16 @@ fun SettingsScreen(
             currentStyleId = screenState.bottomSheetState.currentStyleId,
             onDismiss = { onEvent(SettingsScreenEvent.HideBottomSheet) },
             onStyleSelected = { onEvent(SettingsScreenEvent.OnUnlockScreenStyleSelected(it)) }
+        )
+        is BottomSheetState.SelectType1TimeoutDialog -> SelectType1TimeoutDialog(
+            currentMinutes = screenState.bottomSheetState.currentMinutes,
+            onDismiss = { onEvent(SettingsScreenEvent.HideBottomSheet) },
+            onTimeoutSelected = { onEvent(SettingsScreenEvent.OnType1TimeoutSelected(it)) }
+        )
+        is BottomSheetState.SelectType2ConflictDialog -> SelectType2ConflictDialog(
+            currentBehavior = screenState.bottomSheetState.currentBehavior,
+            onDismiss = { onEvent(SettingsScreenEvent.HideBottomSheet) },
+            onBehaviorSelected = { onEvent(SettingsScreenEvent.OnType2ConflictSelected(it)) }
         )
     }
 }
@@ -944,8 +1047,6 @@ fun SelectAppIconDialog(
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(12.dp))
-
                         if (isSelected) {
                             Icon(
                                 painter = painterResource(R.drawable.check),
@@ -957,9 +1058,19 @@ fun SelectAppIconDialog(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.cancel))
+            }
         }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1069,6 +1180,242 @@ fun SelectUnlockScreenStyleDialog(
                         RadioButton(
                             selected = isSelected,
                             onClick = { onStyleSelected(style.id) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SelectType1TimeoutDialog(
+    currentMinutes: Int,
+    onDismiss: () -> Unit,
+    onTimeoutSelected: (Int) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scrollState = rememberScrollState()
+
+    val options = listOf(
+        Pair(3, Pair(R.string.timeout_3_minutes, R.string.timeout_3_minutes_desc)),
+        Pair(6, Pair(R.string.timeout_6_minutes, R.string.timeout_6_minutes_desc)),
+        Pair(10, Pair(R.string.timeout_10_minutes, R.string.timeout_10_minutes_desc)),
+        Pair(15, Pair(R.string.timeout_15_minutes, R.string.timeout_15_minutes_desc))
+    )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(R.string.choose_type1_timeout),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            options.forEach { (minutes, textPair) ->
+                val (titleRes, descRes) = textPair
+                val isSelected = minutes == currentMinutes
+                val containerColor = if (isSelected) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                }
+                val borderColor = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    Color.Transparent
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { onTimeoutSelected(minutes) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = containerColor,
+                    border = androidx.compose.foundation.BorderStroke(if (isSelected) 2.dp else 1.dp, borderColor)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(48.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.timer),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(titleRes),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(descRes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        RadioButton(
+                            selected = isSelected,
+                            onClick = { onTimeoutSelected(minutes) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SelectType2ConflictDialog(
+    currentBehavior: String,
+    onDismiss: () -> Unit,
+    onBehaviorSelected: (String) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scrollState = rememberScrollState()
+
+    val options = listOf(
+        Triple("show", R.string.conflict_behavior_show_title, R.string.conflict_behavior_show_desc),
+        Triple("defer", R.string.conflict_behavior_defer_title, R.string.conflict_behavior_defer_desc),
+        Triple("reject", R.string.conflict_behavior_reject_title, R.string.conflict_behavior_reject_desc)
+    )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(R.string.choose_type2_conflict),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            options.forEach { (behavior, titleRes, descRes) ->
+                val isSelected = behavior == currentBehavior
+                val containerColor = if (isSelected) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                }
+                val borderColor = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    Color.Transparent
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { onBehaviorSelected(behavior) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = containerColor,
+                    border = androidx.compose.foundation.BorderStroke(if (isSelected) 2.dp else 1.dp, borderColor)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(48.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(
+                                        when (behavior) {
+                                            "defer" -> R.drawable.timer
+                                            "reject" -> R.drawable.security
+                                            else -> R.drawable.swap_calls
+                                        }
+                                    ),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(titleRes),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(descRes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        RadioButton(
+                            selected = isSelected,
+                            onClick = { onBehaviorSelected(behavior) }
                         )
                     }
                 }

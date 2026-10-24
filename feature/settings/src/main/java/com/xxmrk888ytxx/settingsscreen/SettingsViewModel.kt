@@ -30,7 +30,7 @@ class SettingsViewModel @Inject constructor(
 
     private val bottomSheetState = MutableStateFlow<BottomSheetState>(BottomSheetState.None)
 
-    override val state: StateFlow<ScreenState> = combine<Any, ScreenState>(
+    override val state: StateFlow<ScreenState> = combine<Any?, ScreenState>(
         provideSettingsState.isBiometricProtectionEnabled,
         provideSettingsState.appVersion,
         provideSettingsState.isAdditionalPasswordAuthEnabled,
@@ -40,7 +40,15 @@ class SettingsViewModel @Inject constructor(
         biometricProtectionAvailableStateProvider.isAvailable,
         provideSettingsState.isWatchDogEnabled,
         provideSettingsState.appIconId,
-        provideSettingsState.unlockScreenStyle
+        provideSettingsState.customAppIconPath,
+        provideSettingsState.unlockScreenStyle,
+        provideSettingsState.isAutoBiometricOnNotificationEnabled,
+        provideSettingsState.isBackgroundServiceEnabled,
+        provideSettingsState.isWakeLockEnabled,
+        provideSettingsState.isWatchDogFastCheckEnabled,
+        provideSettingsState.isWatchDogAlarmClockEnabled,
+        provideSettingsState.type1UnlockTimeoutMinutes,
+        provideSettingsState.type2IncomingConflictBehavior
     ) { flowArray ->
         val isBiometricProtectionEnabled = flowArray[0] as Boolean
         val appVersion = flowArray[1] as String
@@ -51,7 +59,15 @@ class SettingsViewModel @Inject constructor(
         val isBiometricAuthAvailable = flowArray[6] as Boolean
         val isWatchDogEnabled = flowArray[7] as Boolean
         val currentAppIconId = flowArray[8] as String
-        val unlockScreenStyle = flowArray[9] as String
+        val customAppIconPath = flowArray[9] as? String
+        val unlockScreenStyle = flowArray[10] as String
+        val isAutoBiometricOnNotificationEnabled = flowArray[11] as Boolean
+        val isBackgroundServiceEnabled = flowArray[12] as Boolean
+        val isWakeLockEnabled = flowArray[13] as Boolean
+        val isWatchDogFastCheckEnabled = flowArray[14] as Boolean
+        val isWatchDogAlarmClockEnabled = flowArray[15] as Boolean
+        val type1UnlockTimeoutMinutes = flowArray[16] as Int
+        val type2IncomingConflictBehavior = flowArray[17] as String
 
         ScreenState(
             bottomSheetState = bottomSheetState,
@@ -63,7 +79,15 @@ class SettingsViewModel @Inject constructor(
             isWatchDogEnabled = isWatchDogEnabled,
             isBiometricAuthAvailable = isBiometricAuthAvailable,
             currentAppIconId = currentAppIconId,
-            unlockScreenStyle = unlockScreenStyle
+            customAppIconPath = customAppIconPath,
+            unlockScreenStyle = unlockScreenStyle,
+            isAutoBiometricOnNotificationEnabled = isAutoBiometricOnNotificationEnabled,
+            isBackgroundServiceEnabled = isBackgroundServiceEnabled,
+            isWakeLockEnabled = isWakeLockEnabled,
+            isWatchDogFastCheckEnabled = isWatchDogFastCheckEnabled,
+            isWatchDogAlarmClockEnabled = isWatchDogAlarmClockEnabled,
+            type1UnlockTimeoutMinutes = type1UnlockTimeoutMinutes,
+            type2IncomingConflictBehavior = type2IncomingConflictBehavior
         )
     }.stateWhileSubscribed()
 
@@ -76,6 +100,10 @@ class SettingsViewModel @Inject constructor(
                     changeBiometricAuthState(event.newState)
                 }
             }
+
+            is SettingsScreenEvent.OnAutoBiometricOnNotificationChanged -> changeAutoBiometricOnNotificationState(
+                event.newState
+            )
 
             is SettingsScreenEvent.OnAdditionalPasswordAuthStateChanged -> changeAdditionalPasswordAuthState(
                 event.newState
@@ -105,11 +133,60 @@ class SettingsViewModel @Inject constructor(
             is SettingsScreenEvent.OnThemeColorSelected -> changeThemeColor(event.newColor)
             SettingsScreenEvent.OnAppIconClicked -> showSelectAppIconDialog()
             is SettingsScreenEvent.OnAppIconSelected -> changeAppIcon(event.newIconId)
+            is SettingsScreenEvent.OnCustomAppIconPicked -> setCustomAppIcon(event.uriString)
+            SettingsScreenEvent.OnPinCustomAppIconShortcut -> pinCustomAppIconShortcut()
             SettingsScreenEvent.OnUnlockScreenStyleClicked -> showSelectUnlockScreenStyleDialog()
             is SettingsScreenEvent.OnUnlockScreenStyleSelected -> changeUnlockScreenStyle(event.newStyleId)
             SettingsScreenEvent.OnDownloadPcClientClicked -> openLink { openLinkContract.openPCClientDownloadLink() }
             SettingsScreenEvent.OpenTroubleshootingLink -> openLink { openLinkContract.openTroubleshootingLink() }
+
+            is SettingsScreenEvent.OnBackgroundServiceStateChanged -> changeBackgroundServiceState(event.newState)
+            is SettingsScreenEvent.OnWakeLockStateChanged -> changeWakeLockState(event.newState)
+            is SettingsScreenEvent.OnWatchDogFastCheckStateChanged -> changeWatchDogFastCheckState(event.newState)
+            is SettingsScreenEvent.OnWatchDogAlarmClockStateChanged -> changeWatchDogAlarmClockState(event.newState)
+            SettingsScreenEvent.OnType1TimeoutClicked -> showSelectType1TimeoutDialog()
+            is SettingsScreenEvent.OnType1TimeoutSelected -> changeType1Timeout(event.minutes)
+            SettingsScreenEvent.OnType2ConflictClicked -> showSelectType2ConflictDialog()
+            is SettingsScreenEvent.OnType2ConflictSelected -> changeType2Conflict(event.behavior)
         }
+    }
+
+    private fun changeBackgroundServiceState(isEnabled: Boolean) = viewModelScope.launch {
+        changeSettingsContract.updateBackgroundServiceState(isEnabled)
+    }
+
+    private fun changeWakeLockState(isEnabled: Boolean) = viewModelScope.launch {
+        changeSettingsContract.updateWakeLockState(isEnabled)
+    }
+
+    private fun changeWatchDogFastCheckState(isEnabled: Boolean) = viewModelScope.launch {
+        changeSettingsContract.updateWatchDogFastCheckState(isEnabled)
+    }
+
+    private fun changeWatchDogAlarmClockState(isEnabled: Boolean) = viewModelScope.launch {
+        changeSettingsContract.updateWatchDogAlarmClockState(isEnabled)
+    }
+
+    private fun showSelectType1TimeoutDialog() = viewModelScope.launch {
+        bottomSheetState.value = BottomSheetState.SelectType1TimeoutDialog(
+            currentMinutes = provideSettingsState.type1UnlockTimeoutMinutes.first()
+        )
+    }
+
+    private fun changeType1Timeout(minutes: Int) = viewModelScope.launch {
+        changeSettingsContract.updateType1UnlockTimeoutMinutes(minutes)
+        bottomSheetState.value = BottomSheetState.None
+    }
+
+    private fun showSelectType2ConflictDialog() = viewModelScope.launch {
+        bottomSheetState.value = BottomSheetState.SelectType2ConflictDialog(
+            currentBehavior = provideSettingsState.type2IncomingConflictBehavior.first()
+        )
+    }
+
+    private fun changeType2Conflict(behavior: String) = viewModelScope.launch {
+        changeSettingsContract.updateType2IncomingConflictBehavior(behavior)
+        bottomSheetState.value = BottomSheetState.None
     }
 
     private fun changeThemeColor(newColor: Color?) = viewModelScope.launch {
@@ -122,7 +199,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun showSelectAppIconDialog() = viewModelScope.launch {
-        bottomSheetState.value = BottomSheetState.SelectAppIconDialog(provideSettingsState.appIconId.first())
+        bottomSheetState.value = BottomSheetState.SelectAppIconDialog(
+            currentIconId = provideSettingsState.appIconId.first()
+        )
     }
 
     private fun showSelectUnlockScreenStyleDialog() = viewModelScope.launch {
@@ -139,6 +218,15 @@ class SettingsViewModel @Inject constructor(
         bottomSheetState.value = BottomSheetState.None
     }
 
+    private fun setCustomAppIcon(uriString: String) = viewModelScope.launch {
+        changeSettingsContract.setCustomAppIcon(uriString)
+        bottomSheetState.value = BottomSheetState.None
+    }
+
+    private fun pinCustomAppIconShortcut() = viewModelScope.launch {
+        changeSettingsContract.pinCustomAppIconShortcut()
+    }
+
     private fun openLink(block: suspend () -> Unit) = viewModelScope.launch {
         block()
     }
@@ -153,6 +241,10 @@ class SettingsViewModel @Inject constructor(
 
     private fun changeBiometricAuthState(isEnabled: Boolean) = viewModelScope.launch {
         changeSettingsContract.updateBiometricProtectionState(isEnabled)
+    }
+
+    private fun changeAutoBiometricOnNotificationState(isEnabled: Boolean) = viewModelScope.launch {
+        changeSettingsContract.updateAutoBiometricOnNotificationState(isEnabled)
     }
 
     private fun changeAdditionalPasswordAuthState(isEnabled: Boolean) = viewModelScope.launch {

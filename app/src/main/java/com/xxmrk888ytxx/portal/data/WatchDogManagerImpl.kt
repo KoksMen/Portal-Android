@@ -18,7 +18,6 @@ class WatchDogManagerImpl @Inject constructor(
 ) : WatchDogManager {
 
     private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-
     private var observeJob: Job? = null
 
     override fun startObserve() {
@@ -26,19 +25,25 @@ class WatchDogManagerImpl @Inject constructor(
 
         observeJob = coroutineScope.launch(Dispatchers.Default) {
             settingsRepository.portalSettings
-                .map { it.isWatchDogEnabled }
+                .map { Triple(it.isWatchDogEnabled, it.isWatchDogFastCheckEnabled, it.isWatchDogAlarmClockEnabled) }
                 .distinctUntilChanged()
-                .collect { isEnabled ->
+                .collect { (isEnabled, isFastEnabled, isAlarmClockEnabled) ->
                     if (isEnabled) {
-                        alarmController.scheduleRepeating(WATCH_DOG_INTERVAL_MILLIS)
+                        if (isFastEnabled) {
+                            alarmController.scheduleFastCheck()
+                        } else {
+                            alarmController.cancelFastCheck()
+                        }
+
+                        if (isAlarmClockEnabled) {
+                            alarmController.scheduleAlarmClockCheck()
+                        } else {
+                            alarmController.cancelAlarmClockCheck()
+                        }
                     } else {
-                        alarmController.cancel()
+                        alarmController.cancelAll()
                     }
                 }
         }
-    }
-
-    companion object {
-        const val WATCH_DOG_INTERVAL_MILLIS = 30_000L
     }
 }

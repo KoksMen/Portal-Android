@@ -124,6 +124,10 @@ class MainScreenViewModel @Inject constructor(
                 it.copy(isWolEnabled = event.newValue)
             }
 
+            is MainScreenEvent.OnShortcutCustomIconChanged -> updateCreateShortcutDialogState {
+                it.copy(customIconUri = event.uri)
+            }
+
             MainScreenEvent.RequestIgnoreBatteryOptimizationPermission -> requestIgnoreBatteryOptimizationPermission()
         }
     }
@@ -198,7 +202,8 @@ class MainScreenViewModel @Inject constructor(
         val shortcutOption = ShortcutOption(
             device = dialogState.device,
             isRequiredBiometricUnlock = dialogState.isRequiredBiometricUnlock,
-            isSendWOLRequest = dialogState.isWolEnabled
+            isSendWOLRequest = dialogState.isWolEnabled,
+            customIconUri = dialogState.customIconUri
         )
         handleEvent(MainScreenEvent.DismissDialog)
         isLoading.update { true }

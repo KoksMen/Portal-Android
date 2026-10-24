@@ -12,5 +12,13 @@ data class PortalSettings(
     val themeColor: Color?,
     val isWatchDogEnabled: Boolean,
     val appIconId: String = "default",
-    val unlockScreenStyle: String = "classic"
+    val customAppIconPath: String? = null,
+    val unlockScreenStyle: String = "classic",
+    val isAutoBiometricOnNotificationEnabled: Boolean = false,
+    val isBackgroundServiceEnabled: Boolean = false,
+    val isWakeLockEnabled: Boolean = false,
+    val isWatchDogFastCheckEnabled: Boolean = true,
+    val isWatchDogAlarmClockEnabled: Boolean = true,
+    val type1UnlockTimeoutMinutes: Int = 6,
+    val type2IncomingConflictBehavior: String = "show"
 )

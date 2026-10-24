@@ -1,5 +1,19 @@
 package com.xxmrk888ytxx.mainscreen
 
+import android.net.Uri
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -259,6 +273,9 @@ fun MainScreen(
                 onSendWolRequestChanged = {
                     onEvent(MainScreenEvent.OnIsRequiredSendWOLRequestChanged(it))
                 },
+                onCustomIconChanged = {
+                    onEvent(MainScreenEvent.OnShortcutCustomIconChanged(it))
+                }
             )
 
             is DialogState.EnterMacAddressDialog -> EnterMacAddressDialog(
@@ -851,9 +868,17 @@ fun CreateShortcutBottomSheet(
     onDismiss: () -> Unit,
     onIsRequiredBiometricUnlockStateChanged: (Boolean) -> Unit,
     onSendWolRequestChanged: (Boolean) -> Unit,
+    onCustomIconChanged: (String?) -> Unit,
     onCreateClick: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            onCustomIconChanged(uri.toString())
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -864,13 +889,111 @@ fun CreateShortcutBottomSheet(
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Text(
                 text = stringResource(R.string.create_shortcut),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
+
+            // Custom Shortcut Icon Picker
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .clickable {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    }
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White,
+                    shadowElevation = 2.dp,
+                    border = BorderStroke(1.dp, Color(0x1F000000))
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (dialogState.customIconUri != null) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(Uri.parse(dialogState.customIconUri))
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = stringResource(R.string.shortcut_icon),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(2.dp)
+                                    .clip(RoundedCornerShape(10.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.lock_open),
+                                contentDescription = stringResource(R.string.shortcut_icon),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.shortcut_icon),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (dialogState.customIconUri != null) {
+                            stringResource(R.string.shortcut_icon_custom)
+                        } else {
+                            stringResource(R.string.shortcut_icon_default)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (dialogState.customIconUri != null) {
+                    IconButton(
+                        onClick = { onCustomIconChanged(null) },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.close),
+                            contentDescription = stringResource(R.string.reset_shortcut_icon),
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = {
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.pick_custom_shortcut_icon),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
 
             SettingsRowWithDescription(
                 title = stringResource(R.string.use_biometric_authentication),

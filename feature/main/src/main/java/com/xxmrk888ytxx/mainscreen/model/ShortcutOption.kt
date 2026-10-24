@@ -4,4 +4,5 @@ data class ShortcutOption(
     val device: Device,
     val isRequiredBiometricUnlock: Boolean,
     val isSendWOLRequest: Boolean,
+    val customIconUri: String? = null
 )

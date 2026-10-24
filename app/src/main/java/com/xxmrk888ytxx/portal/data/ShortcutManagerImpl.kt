@@ -3,6 +3,9 @@ package com.xxmrk888ytxx.portal.data
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.graphics.BitmapFactory
+import com.xxmrk888ytxx.portal.utils.IconUtils
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
@@ -20,21 +23,34 @@ class ShortcutManagerImpl @Inject constructor(
     private val context: Context,
     private val shortcutRepository: ShortcutRepository
 ) : ShortcutManager {
-    override suspend fun addShortcut(shortcut: Shortcut, label: String) {
+    override suspend fun addShortcut(shortcut: Shortcut, label: String, customIconUri: String?) {
         val targetIntent = Intent(context, ShortcutUnlockActivity::class.java).apply {
             action = ShortcutUnlockActivity.UNLOCK_FROM_SHORTCUT_ACTION
             putExtra(SHORTCUT_ID_EXTRA, shortcut.shortcutId)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
 
+        val iconCompat = if (customIconUri != null) {
+            try {
+                val uri = Uri.parse(customIconUri)
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                inputStream?.close()
+                if (bitmap != null) {
+                    IconCompat.createWithBitmap(IconUtils.renderSquircleBitmap(bitmap))
+                } else {
+                    IconCompat.createWithResource(context, com.xxmrk888ytxx.mainscreen.R.drawable.lock_open)
+                }
+            } catch (e: Exception) {
+                IconCompat.createWithResource(context, com.xxmrk888ytxx.mainscreen.R.drawable.lock_open)
+            }
+        } else {
+            IconCompat.createWithResource(context, com.xxmrk888ytxx.mainscreen.R.drawable.lock_open)
+        }
+
         val shortcutInfo = ShortcutInfoCompat.Builder(context, shortcut.shortcutId)
             .setShortLabel(label)
-            .setIcon(
-                IconCompat.createWithResource(
-                    context,
-                    com.xxmrk888ytxx.mainscreen.R.drawable.lock_open
-                )
-            )
+            .setIcon(iconCompat)
             .setIntent(targetIntent)
             .build()
 

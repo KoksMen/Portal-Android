@@ -21,6 +21,7 @@ sealed interface MainScreenEvent : UiEvent {
     data class OnMacAddressChanged(val newText: String) : MainScreenEvent
     data class OnIsTryToSendEnabledChanged(val newState: Boolean): MainScreenEvent
     data class OnIsRequiredSendWOLRequestChanged(val newValue: Boolean) : MainScreenEvent
+    data class OnShortcutCustomIconChanged(val uri: String?) : MainScreenEvent
     data object SendWOLRequest : MainScreenEvent
     data object SaveWOLMacAddress : MainScreenEvent
 }

@@ -21,4 +21,12 @@ sealed interface BottomSheetState {
     data class SelectUnlockScreenStyleDialog(
         val currentStyleId: String = UnlockScreenStyle.FULLSCREEN.id
     ) : BottomSheetState
+
+    data class SelectType1TimeoutDialog(
+        val currentMinutes: Int = 6
+    ) : BottomSheetState
+
+    data class SelectType2ConflictDialog(
+        val currentBehavior: String = "show"
+    ) : BottomSheetState
 }

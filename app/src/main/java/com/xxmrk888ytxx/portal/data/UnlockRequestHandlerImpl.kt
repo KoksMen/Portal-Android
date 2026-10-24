@@ -1,9 +1,11 @@
 package com.xxmrk888ytxx.portal.data
 
 import com.xxmrk888ytxx.coreandroid.fastDebugLog
+import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
 import com.xxmrk888ytxx.portal.domain.BluetoothDeviceRepository
 import com.xxmrk888ytxx.portal.domain.DeviceSettingsRepository
 import com.xxmrk888ytxx.portal.domain.IncomingUnlockDecisionCoordinator
+import com.xxmrk888ytxx.portal.domain.SettingsRepository
 import com.xxmrk888ytxx.portal.domain.UnlockRequestHandler
 import com.xxmrk888ytxx.portal.domain.UnlockRequestManager
 import com.xxmrk888ytxx.portal.domain.WearPhoneGateway
@@ -21,7 +23,9 @@ class UnlockRequestHandlerImpl @Inject constructor(
     private val bluetoothDeviceRepository: BluetoothDeviceRepository,
     private val deviceSettingsRepository: DeviceSettingsRepository,
     private val decisionCoordinator: IncomingUnlockDecisionCoordinator,
-    private val wearPhoneGateway: WearPhoneGateway
+    private val wearPhoneGateway: WearPhoneGateway,
+    private val activeUnlockTracker: ActiveUnlockTracker,
+    private val settingsRepository: SettingsRepository
 ) : UnlockRequestHandler {
 
     private val _handledRequestsId = MutableStateFlow(emptySet<String>())
@@ -35,6 +39,26 @@ class UnlockRequestHandlerImpl @Inject constructor(
             fastDebugLog("${request.requestId} Already Handled. Skip")
             return
         }
+
+        if (activeUnlockTracker.isType1UnlockActive(clientId)) {
+            val conflictBehavior = settingsRepository.portalSettings.first().type2IncomingConflictBehavior
+            when (conflictBehavior) {
+                "reject" -> {
+                    fastDebugLog("Type 1 unlock is active for $clientId. Dropping Type 2 request as configured (reject)")
+                    return
+                }
+                "defer" -> {
+                    fastDebugLog("Type 1 unlock is active for $clientId. Deferring Type 2 request as configured (defer)")
+                    activeUnlockTracker.deferType2Request(clientId, request)
+                    return
+                }
+                else -> {
+                    // "show": proceed normally
+                    fastDebugLog("Type 1 unlock is active for $clientId, but conflict behavior is show. Proceeding.")
+                }
+            }
+        }
+
         request.requestId?.let { requestId ->
             _handledRequestsId.update { it + requestId }
         }

@@ -117,8 +117,14 @@ class UnlockScreenViewModel @Inject constructor(
         if (isAllowEventHandling.value) return
         isAllowEventHandling.value = true
         viewModelScope.launch {
-            val isBiometricUnlockEnabled =
-                settingsRepository.portalSettings.first().isBiometricAuthEnabled
+            val portalSettings = settingsRepository.portalSettings.first()
+            val isBiometricUnlockEnabled = portalSettings.isBiometricAuthEnabled
+            val isAutoBiometricEnabled = portalSettings.isAutoBiometricOnNotificationEnabled
+
+            if (!event.isSentByUser && !isAutoBiometricEnabled) {
+                return@launch
+            }
+
             if (isBiometricUnlockEnabled) {
                 requestBiometricAuth(event.fragmentActivity)
             } else {

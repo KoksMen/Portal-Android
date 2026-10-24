@@ -33,6 +33,22 @@ class ProvideSettingsStateImpl @Inject constructor(
         get() = settingsRepository.portalSettings.map { it.themeColor }
     override val appIconId: Flow<String> =
         settingsRepository.portalSettings.map { it.appIconId }
+    override val customAppIconPath: Flow<String?> =
+        settingsRepository.portalSettings.map { it.customAppIconPath }
     override val unlockScreenStyle: Flow<String> =
         settingsRepository.portalSettings.map { it.unlockScreenStyle }
+    override val isAutoBiometricOnNotificationEnabled: Flow<Boolean> =
+        settingsRepository.portalSettings.map { it.isAutoBiometricOnNotificationEnabled }
+    override val isBackgroundServiceEnabled: Flow<Boolean> =
+        settingsRepository.portalSettings.map { it.isBackgroundServiceEnabled }
+    override val isWakeLockEnabled: Flow<Boolean> =
+        settingsRepository.portalSettings.map { it.isWakeLockEnabled }
+    override val isWatchDogFastCheckEnabled: Flow<Boolean> =
+        settingsRepository.portalSettings.map { it.isWatchDogFastCheckEnabled }
+    override val isWatchDogAlarmClockEnabled: Flow<Boolean> =
+        settingsRepository.portalSettings.map { it.isWatchDogAlarmClockEnabled }
+    override val type1UnlockTimeoutMinutes: Flow<Int> =
+        settingsRepository.portalSettings.map { it.type1UnlockTimeoutMinutes }
+    override val type2IncomingConflictBehavior: Flow<String> =
+        settingsRepository.portalSettings.map { it.type2IncomingConflictBehavior }
 }

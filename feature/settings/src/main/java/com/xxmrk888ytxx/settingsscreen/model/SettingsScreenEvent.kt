@@ -6,6 +6,7 @@ import com.xxmrk888ytxx.coreandroid.mvi.UiEvent
 sealed interface SettingsScreenEvent : UiEvent {
     data object OnLogsClick : SettingsScreenEvent
     data class OnBiometricProtectionStateChanged(val newState: Boolean) : SettingsScreenEvent
+    data class OnAutoBiometricOnNotificationChanged(val newState: Boolean) : SettingsScreenEvent
     data class OnAdditionalPasswordAuthStateChanged(val newState: Boolean) : SettingsScreenEvent
     data class OnRemovePairedClientsIfBiometricEnvironmentStateChanged(val newState: Boolean) : SettingsScreenEvent
     data class OnChangeUnsafeUnlockTypesState(val newState: Boolean) : SettingsScreenEvent
@@ -23,8 +24,18 @@ sealed interface SettingsScreenEvent : UiEvent {
     data object OnThemeClicked : SettingsScreenEvent
     data object OnAppIconClicked : SettingsScreenEvent
     data class OnAppIconSelected(val newIconId: String) : SettingsScreenEvent
+    data class OnCustomAppIconPicked(val uriString: String) : SettingsScreenEvent
+    data object OnPinCustomAppIconShortcut : SettingsScreenEvent
     data object OnUnlockScreenStyleClicked : SettingsScreenEvent
     data class OnUnlockScreenStyleSelected(val newStyleId: String) : SettingsScreenEvent
     data object OnDownloadPcClientClicked : SettingsScreenEvent
     data object OpenTroubleshootingLink : SettingsScreenEvent
+    data class OnBackgroundServiceStateChanged(val newState: Boolean) : SettingsScreenEvent
+    data class OnWakeLockStateChanged(val newState: Boolean) : SettingsScreenEvent
+    data class OnWatchDogFastCheckStateChanged(val newState: Boolean) : SettingsScreenEvent
+    data class OnWatchDogAlarmClockStateChanged(val newState: Boolean) : SettingsScreenEvent
+    data object OnType1TimeoutClicked : SettingsScreenEvent
+    data class OnType1TimeoutSelected(val minutes: Int) : SettingsScreenEvent
+    data object OnType2ConflictClicked : SettingsScreenEvent
+    data class OnType2ConflictSelected(val behavior: String) : SettingsScreenEvent
 }

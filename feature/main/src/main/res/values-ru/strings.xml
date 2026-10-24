@@ -53,4 +53,9 @@
     <string name="add_pc">Добавить ПК</string>
     <string name="unlocking_device">Разблокировка %1$s…</string>
     <string name="signal_sent_successfully">Сигнал успешно передан</string>
+    <string name="shortcut_icon">Иконка ярлыка</string>
+    <string name="shortcut_icon_custom">Своё изображение</string>
+    <string name="shortcut_icon_default">По умолчанию</string>
+    <string name="pick_custom_shortcut_icon">Выбрать фото</string>
+    <string name="reset_shortcut_icon">Сбросить</string>
 </resources>

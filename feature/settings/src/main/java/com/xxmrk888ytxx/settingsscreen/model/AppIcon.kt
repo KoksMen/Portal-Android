@@ -46,6 +46,12 @@ enum class AppIcon(
         descriptionRes = R.string.app_icon_anime_2_desc,
         previewRes = R.drawable.app_icon_anime_2_preview
     ),
+    ANIME_3(
+        id = "anime_3",
+        titleRes = R.string.app_icon_anime_3_title,
+        descriptionRes = R.string.app_icon_anime_3_desc,
+        previewRes = R.drawable.app_icon_anime_3_preview
+    ),
     CLASSIC(
         id = "classic",
         titleRes = R.string.app_icon_classic_title,

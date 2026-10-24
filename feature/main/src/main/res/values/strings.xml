@@ -53,4 +53,9 @@
     <string name="add_pc">Add PC</string>
     <string name="unlocking_device">Unlocking %1$s…</string>
     <string name="signal_sent_successfully">Signal sent successfully</string>
+    <string name="shortcut_icon">Shortcut Icon</string>
+    <string name="shortcut_icon_custom">Custom image</string>
+    <string name="shortcut_icon_default">Default</string>
+    <string name="pick_custom_shortcut_icon">Pick photo</string>
+    <string name="reset_shortcut_icon">Reset</string>
 </resources>

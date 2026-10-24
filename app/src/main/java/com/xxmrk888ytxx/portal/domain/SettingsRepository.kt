@@ -15,7 +15,15 @@ interface SettingsRepository {
     suspend fun updateThemeColor(newColor: Color?)
     suspend fun updateWatchDogEnabled(isEnabled: Boolean)
     suspend fun updateAppIconId(iconId: String)
+    suspend fun updateCustomAppIconPath(path: String?)
     suspend fun updateUnlockScreenStyle(styleId: String)
+    suspend fun updateAutoBiometricOnNotificationEnabled(isEnabled: Boolean)
+    suspend fun updateBackgroundServiceEnabled(isEnabled: Boolean)
+    suspend fun updateWakeLockEnabled(isEnabled: Boolean)
+    suspend fun updateWatchDogFastCheckEnabled(isEnabled: Boolean)
+    suspend fun updateWatchDogAlarmClockEnabled(isEnabled: Boolean)
+    suspend fun updateType1UnlockTimeoutMinutes(minutes: Int)
+    suspend fun updateType2IncomingConflictBehavior(behavior: String)
 
     companion object {
         const val DEFAULT_VALUE = 0

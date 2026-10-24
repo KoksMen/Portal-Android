@@ -24,7 +24,10 @@ class CreateShortcutContractImpl @Inject constructor(
                 isRequiredBiometricUnlock = shortcutOption.isRequiredBiometricUnlock,
                 isSendWOLRequest = shortcutOption.isSendWOLRequest
             )
-            shortcutManager.addShortcut(shortcut,
-                context.getString(R.string.unlock, shortcutOption.device.deviceName))
+            shortcutManager.addShortcut(
+                shortcut = shortcut,
+                label = context.getString(R.string.unlock, shortcutOption.device.deviceName),
+                customIconUri = shortcutOption.customIconUri
+            )
         }
 }

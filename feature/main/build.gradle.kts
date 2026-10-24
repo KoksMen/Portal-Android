@@ -7,3 +7,7 @@ plugins {
 extensions.configure<LibraryExtension> {
     namespace = "com.xxmrk888ytxx.mainscreen"
 }
+
+dependencies {
+    implementation(libs.coil.compose)
+}

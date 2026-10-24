@@ -6,8 +6,12 @@ import android.os.IBinder
 import com.xxmrk888ytxx.coreandroid.buildForegroundServiceNotificationChannel
 import com.xxmrk888ytxx.coreandroid.buildNotification
 import com.xxmrk888ytxx.portal.R
+import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
 import com.xxmrk888ytxx.portal.domain.BluetoothDeviceRepository
 import com.xxmrk888ytxx.portal.domain.DeviceUnlockManager
+import com.xxmrk888ytxx.portal.domain.SettingsRepository
+import com.xxmrk888ytxx.portal.domain.UnlockRequestHandler
+import com.xxmrk888ytxx.portal.domain.WakeLockManager
 import com.xxmrk888ytxx.portal.domain.WOLManager
 import com.xxmrk888ytxx.portal.domain.WifiDeviceRepository
 import javax.inject.Inject
@@ -16,12 +20,20 @@ class UnlockFromShortcutService @Inject constructor(
     wifiDeviceRepository: WifiDeviceRepository,
     deviceUnlockManager: DeviceUnlockManager,
     bluetoothDeviceRepository: BluetoothDeviceRepository,
-    wolManager: WOLManager
+    wolManager: WOLManager,
+    activeUnlockTracker: ActiveUnlockTracker,
+    wakeLockManager: WakeLockManager,
+    settingsRepository: SettingsRepository,
+    unlockRequestHandler: dagger.Lazy<UnlockRequestHandler>
 ) : ClientUnlockService(
-    wolManager,
-    deviceUnlockManager,
-    wifiDeviceRepository,
-    bluetoothDeviceRepository
+    wolManager = wolManager,
+    deviceUnlockManager = deviceUnlockManager,
+    wifiDeviceRepository = wifiDeviceRepository,
+    bluetoothDeviceRepository = bluetoothDeviceRepository,
+    activeUnlockTracker = activeUnlockTracker,
+    wakeLockManager = wakeLockManager,
+    settingsRepository = settingsRepository,
+    unlockRequestHandler = unlockRequestHandler
 ) {
     override val notificationId: Int
         get() = NOTIFICATION_ID
@@ -46,7 +58,6 @@ class UnlockFromShortcutService @Inject constructor(
             getString(R.string.notification_during_unlocking_via_shortcut)
         )
     }
-
 
     companion object {
         const val SHORTCUT_UNLOCK_SERVICE_CHANNEL = "SHORTCUT_UNLOCK_SERVICE"

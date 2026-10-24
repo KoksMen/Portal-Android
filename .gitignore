@@ -16,3 +16,4 @@ local.properties
 .idea
 .kotlin
 gradle/gradle-daemon-jvm.properties
+*.apk

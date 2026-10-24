@@ -21,7 +21,7 @@ sealed interface DialogState {
         val isBiometricUnlockAvailable: Boolean,
         val isWOLAvailable: Boolean,
         val isWOLVisible: Boolean,
-        val isUnsafeUnlockTypesDisabled: Boolean
+        val isUnsafeUnlockTypesDisabled: Boolean,
+        val customIconUri: String? = null
     ) : DialogState
 }
-
