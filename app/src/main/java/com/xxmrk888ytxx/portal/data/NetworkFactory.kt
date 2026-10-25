@@ -55,7 +55,7 @@ class NetworkFactory @Inject constructor(
         certificate: Certificate,
         trustedServerHashFingerprint: String
     ): HttpClient =
-        createDefaultClient(connectTimeoutMs = 3000L, requestTimeoutMs = 5000L) {
+        createDefaultClient(connectTimeoutMs = 1500L, requestTimeoutMs = 3000L) {
             engine {
                 mtlsConfig(certificate, trustedServerHashFingerprint)
             }

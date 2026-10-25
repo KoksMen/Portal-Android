@@ -31,16 +31,18 @@ class DeviceUnlockManagerImpl @Inject constructor(
                     ?: throw IllegalStateException("Device haven't settings")
 
             val dynamicHost = if (settings.searchIpDynamically) {
-                val mdnsHost = mdnsManager.waitHostForClient(wifiDevice.clientId)
-                if (mdnsHost != null) {
-                    fastDebugLog("In unlockWifiDevice mDNS resolved host: $mdnsHost")
-                    mdnsHost
+                val cached = mdnsManager.getCachedHost(wifiDevice.clientId)
+                if (cached != null) {
+                    fastDebugLog("In unlockWifiDevice cached mDNS host: $cached")
+                    cached
                 } else {
                     val arpHost = wifiDevice.wolMacAddress?.let { findIpInArpTable(it) }
                     if (arpHost != null) {
                         fastDebugLog("In unlockWifiDevice ARP resolved host: $arpHost for MAC ${wifiDevice.wolMacAddress}")
-                    }
-                    arpHost
+                        arpHost
+                    } else if (wifiDevice.host.isEmpty()) {
+                        mdnsManager.waitHostForClient(wifiDevice.clientId, timeoutMs = 1000L)
+                    } else null
                 }
             } else null
 

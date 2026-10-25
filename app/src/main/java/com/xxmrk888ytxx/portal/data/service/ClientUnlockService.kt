@@ -31,6 +31,7 @@ import com.xxmrk888ytxx.portal.utils.getParsableExtraCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
@@ -92,13 +93,8 @@ abstract class ClientUnlockService(
         cancelNotificationDismiss(notificationId)
 
         if (currentUnlockJob?.isActive == true) {
-            if (currentRunningClientId == clientUnlockServiceParams.clientId) {
-                fastDebugLog("Unlock job is already active for $currentRunningClientId, ignoring duplicate start command")
-                return START_NOT_STICKY
-            } else {
-                fastDebugLog("Cancelling previous unlock job for $currentRunningClientId to start for ${clientUnlockServiceParams.clientId}")
-                currentUnlockJob?.cancel()
-            }
+            fastDebugLog("Cancelling previous unlock job for $currentRunningClientId to restart with latest settings for ${clientUnlockServiceParams.clientId}")
+            currentUnlockJob?.cancel()
         }
         currentRunningClientId = clientUnlockServiceParams.clientId
 
@@ -226,18 +222,27 @@ abstract class ClientUnlockService(
             timeoutMillis = timeoutMillis,
             retryIntervalMillis = retryIntervalMillis
         ) {
-            val wifiSuccess = tryWifiDeviceUnlock(
-                wifiDevice = wifiDevice,
-                macAddress = macAddress,
-                clientUnlockServiceParams = clientUnlockServiceParams
-            )
-            if (wifiSuccess) {
-                true
-            } else if (matchingBtDevice != null && clientUnlockServiceParams.isSendUnlockRequest) {
-                fastDebugLog("Wi-Fi unlock not yet succeeded, trying matching Bluetooth device: ${matchingBtDevice.name}")
-                tryBluetoothDeviceUnlock(matchingBtDevice, clientUnlockServiceParams)
-            } else {
-                false
+            coroutineScope {
+                val wifiJob = async {
+                    tryWifiDeviceUnlock(
+                        wifiDevice = wifiDevice,
+                        macAddress = macAddress,
+                        clientUnlockServiceParams = clientUnlockServiceParams
+                    )
+                }
+                val btJob = if (matchingBtDevice != null && clientUnlockServiceParams.isSendUnlockRequest) {
+                    async {
+                        tryBluetoothDeviceUnlock(matchingBtDevice, clientUnlockServiceParams)
+                    }
+                } else null
+
+                val wifiSuccess = wifiJob.await()
+                if (wifiSuccess) {
+                    btJob?.cancel()
+                    true
+                } else {
+                    btJob?.await() ?: false
+                }
             }
         }
     }
@@ -304,7 +309,12 @@ abstract class ClientUnlockService(
                     }
                     isFirstAttempt = false
 
-                    val isUnlockSuccessful = unlockBlock()
+                    val currentIntervalSeconds = settingsRepository.portalSettings.first().type1RetryIntervalSeconds
+                    val currentIntervalMillis = (currentIntervalSeconds * 1000L).coerceIn(1000L, 300_000L)
+                    val attemptTimeout = (currentIntervalMillis - 100L).coerceIn(800L, 10_000L)
+                    val isUnlockSuccessful = withTimeoutOrNull(attemptTimeout) {
+                        unlockBlock()
+                    } ?: false
                     if (isUnlockSuccessful) {
                         fastDebugLog("Unlock success. Stop $this")
                         isSuccess = true
@@ -313,7 +323,7 @@ abstract class ClientUnlockService(
                         fastDebugLog("Unlock failed. Restart $this (attempt ${currentAttemptCount.get()})")
                         if (isActive && clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout) {
                             val elapsedThisAttempt = System.currentTimeMillis() - attemptStartTime
-                            val delayNeeded = (retryIntervalMillis - elapsedThisAttempt).coerceAtLeast(100L)
+                            val delayNeeded = (currentIntervalMillis - elapsedThisAttempt).coerceAtLeast(10L)
                             delay(delayNeeded)
                         }
                     }
