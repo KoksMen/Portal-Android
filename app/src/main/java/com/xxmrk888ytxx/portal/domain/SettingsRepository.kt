@@ -24,6 +24,7 @@ interface SettingsRepository {
     suspend fun updateWatchDogAlarmClockEnabled(isEnabled: Boolean)
     suspend fun updateType1UnlockTimeoutMinutes(minutes: Int)
     suspend fun updateType2IncomingConflictBehavior(behavior: String)
+    suspend fun updateType1RetryIntervalSeconds(seconds: Int)
 
     companion object {
         const val DEFAULT_VALUE = 0

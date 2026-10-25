@@ -116,4 +116,26 @@
     <string name="conflict_behavior_defer_desc">Queue incoming request; display only if Type 1 unlock fails or times out</string>
     <string name="conflict_behavior_reject_title">Reject / Suppress</string>
     <string name="conflict_behavior_reject_desc">Ignore and discard incoming requests while Type 1 is actively running</string>
+    <string name="type1_retry_interval_title">Unlock Request Frequency</string>
+    <string name="type1_retry_interval_desc">Interval between unlock retry attempts: %1$d sec</string>
+    <string name="choose_type1_retry_interval">Choose Request Frequency</string>
+    <string name="interval_1_sec">1 second</string>
+    <string name="interval_1_sec_desc">Continuous polling, maximum responsiveness</string>
+    <string name="interval_2_sec">2 seconds</string>
+    <string name="interval_2_sec_desc">Fast response</string>
+    <string name="interval_3_sec">3 seconds</string>
+    <string name="interval_3_sec_desc">Balanced fast retry</string>
+    <string name="interval_5_sec">5 seconds (Default)</string>
+    <string name="interval_5_sec_desc">Standard balanced interval</string>
+    <string name="interval_10_sec">10 seconds</string>
+    <string name="interval_10_sec_desc">Reduced network usage</string>
+    <string name="interval_15_sec">15 seconds</string>
+    <string name="interval_15_sec_desc">Low power consumption</string>
+    <string name="interval_30_sec">30 seconds</string>
+    <string name="interval_30_sec_desc">Infrequent attempts</string>
+    <string name="interval_60_sec">60 seconds (1 min)</string>
+    <string name="interval_60_sec_desc">Very long background wake</string>
+    <string name="custom_interval">Custom interval</string>
+    <string name="enter_seconds">Seconds (1–300)</string>
+    <string name="apply">Apply</string>
 </resources>

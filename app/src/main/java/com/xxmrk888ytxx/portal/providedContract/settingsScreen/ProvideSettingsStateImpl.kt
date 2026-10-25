@@ -51,4 +51,6 @@ class ProvideSettingsStateImpl @Inject constructor(
         settingsRepository.portalSettings.map { it.type1UnlockTimeoutMinutes }
     override val type2IncomingConflictBehavior: Flow<String> =
         settingsRepository.portalSettings.map { it.type2IncomingConflictBehavior }
+    override val type1RetryIntervalSeconds: Flow<Int> =
+        settingsRepository.portalSettings.map { it.type1RetryIntervalSeconds }
 }

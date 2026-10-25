@@ -20,4 +20,5 @@ interface ChangeSettingsContract {
     suspend fun updateWatchDogAlarmClockState(isEnabled: Boolean)
     suspend fun updateType1UnlockTimeoutMinutes(minutes: Int)
     suspend fun updateType2IncomingConflictBehavior(behavior: String)
+    suspend fun updateType1RetryIntervalSeconds(seconds: Int)
 }

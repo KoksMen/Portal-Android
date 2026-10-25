@@ -21,4 +21,5 @@ interface ProvideSettingsState {
     val isWatchDogAlarmClockEnabled: Flow<Boolean>
     val type1UnlockTimeoutMinutes: Flow<Int>
     val type2IncomingConflictBehavior: Flow<String>
+    val type1RetryIntervalSeconds: Flow<Int>
 }

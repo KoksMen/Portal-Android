@@ -29,4 +29,8 @@ sealed interface BottomSheetState {
     data class SelectType2ConflictDialog(
         val currentBehavior: String = "show"
     ) : BottomSheetState
+
+    data class SelectType1RetryIntervalDialog(
+        val currentSeconds: Int = 5
+    ) : BottomSheetState
 }

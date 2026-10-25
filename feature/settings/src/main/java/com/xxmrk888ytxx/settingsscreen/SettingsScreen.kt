@@ -316,6 +316,15 @@ fun SettingsScreen(
                     }
                 )
 
+                SettingsItem(
+                    title = stringResource(R.string.type1_retry_interval_title),
+                    subtitle = stringResource(R.string.type1_retry_interval_desc, screenState.type1RetryIntervalSeconds),
+                    iconRes = R.drawable.replay,
+                    onClick = {
+                        onEvent(SettingsScreenEvent.OnType1RetryIntervalClicked)
+                    }
+                )
+
                 val conflictSubtitle = when (screenState.type2IncomingConflictBehavior) {
                     "defer" -> stringResource(R.string.conflict_behavior_defer_title)
                     "reject" -> stringResource(R.string.conflict_behavior_reject_title)
@@ -433,6 +442,11 @@ fun SettingsScreen(
             currentMinutes = screenState.bottomSheetState.currentMinutes,
             onDismiss = { onEvent(SettingsScreenEvent.HideBottomSheet) },
             onTimeoutSelected = { onEvent(SettingsScreenEvent.OnType1TimeoutSelected(it)) }
+        )
+        is BottomSheetState.SelectType1RetryIntervalDialog -> SelectType1RetryIntervalDialog(
+            currentSeconds = screenState.bottomSheetState.currentSeconds,
+            onDismiss = { onEvent(SettingsScreenEvent.HideBottomSheet) },
+            onIntervalSelected = { onEvent(SettingsScreenEvent.OnType1RetryIntervalSelected(it)) }
         )
         is BottomSheetState.SelectType2ConflictDialog -> SelectType2ConflictDialog(
             currentBehavior = screenState.bottomSheetState.currentBehavior,
@@ -1297,6 +1311,231 @@ fun SelectType1TimeoutDialog(
                             selected = isSelected,
                             onClick = { onTimeoutSelected(minutes) }
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SelectType1RetryIntervalDialog(
+    currentSeconds: Int,
+    onDismiss: () -> Unit,
+    onIntervalSelected: (Int) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scrollState = rememberScrollState()
+
+    val options = listOf(
+        Pair(1, Pair(R.string.interval_1_sec, R.string.interval_1_sec_desc)),
+        Pair(2, Pair(R.string.interval_2_sec, R.string.interval_2_sec_desc)),
+        Pair(3, Pair(R.string.interval_3_sec, R.string.interval_3_sec_desc)),
+        Pair(5, Pair(R.string.interval_5_sec, R.string.interval_5_sec_desc)),
+        Pair(10, Pair(R.string.interval_10_sec, R.string.interval_10_sec_desc)),
+        Pair(15, Pair(R.string.interval_15_sec, R.string.interval_15_sec_desc)),
+        Pair(30, Pair(R.string.interval_30_sec, R.string.interval_30_sec_desc)),
+        Pair(60, Pair(R.string.interval_60_sec, R.string.interval_60_sec_desc))
+    )
+
+    var customSecondsText by remember { mutableStateOf("") }
+    val isCustomActive = options.none { it.first == currentSeconds }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(R.string.choose_type1_retry_interval),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            options.forEach { (seconds, textPair) ->
+                val (titleRes, descRes) = textPair
+                val isSelected = seconds == currentSeconds
+                val containerColor = if (isSelected) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                }
+                val borderColor = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    Color.Transparent
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { onIntervalSelected(seconds) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = containerColor,
+                    border = androidx.compose.foundation.BorderStroke(if (isSelected) 2.dp else 1.dp, borderColor)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(48.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.replay),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(titleRes),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(descRes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        RadioButton(
+                            selected = isSelected,
+                            onClick = { onIntervalSelected(seconds) }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Custom interval section
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = if (isCustomActive) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                },
+                border = androidx.compose.foundation.BorderStroke(
+                    if (isCustomActive) 2.dp else 1.dp,
+                    if (isCustomActive) MaterialTheme.colorScheme.primary else Color.Transparent
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(48.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.replay),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.custom_interval),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(R.string.enter_seconds),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = customSecondsText,
+                            onValueChange = { input ->
+                                if (input.all { it.isDigit() } && input.length <= 4) {
+                                    customSecondsText = input
+                                }
+                            },
+                            placeholder = { Text(if (isCustomActive) "$currentSeconds" else "5") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Button(
+                            onClick = {
+                                val entered = customSecondsText.toIntOrNull()
+                                if (entered != null && entered in 1..300) {
+                                    onIntervalSelected(entered)
+                                }
+                            },
+                            enabled = customSecondsText.toIntOrNull()?.let { it in 1..300 } == true,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(stringResource(R.string.apply))
+                        }
                     }
                 }
             }

@@ -90,4 +90,8 @@ class ChangeSettingsContractImpl @Inject constructor(
     override suspend fun updateType2IncomingConflictBehavior(behavior: String) {
         settingsRepository.updateType2IncomingConflictBehavior(behavior)
     }
+
+    override suspend fun updateType1RetryIntervalSeconds(seconds: Int) {
+        settingsRepository.updateType1RetryIntervalSeconds(seconds)
+    }
 }

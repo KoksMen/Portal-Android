@@ -120,8 +120,11 @@ abstract class ClientUnlockService(
 
     private suspend fun handleUnlock(clientUnlockServiceParams: ClientUnlockServiceParams) {
         val clientId = clientUnlockServiceParams.clientId
-        val timeoutMinutes = settingsRepository.portalSettings.first().type1UnlockTimeoutMinutes
+        val portalSettings = settingsRepository.portalSettings.first()
+        val timeoutMinutes = portalSettings.type1UnlockTimeoutMinutes
         val timeoutMillis = (timeoutMinutes * 60 * 1000L).coerceAtLeast(60_000L)
+        val retryIntervalSeconds = portalSettings.type1RetryIntervalSeconds
+        val retryIntervalMillis = (retryIntervalSeconds * 1000L).coerceIn(1000L, 300_000L)
         val wakeLockTag = "ClientUnlockService:$clientId"
 
         activeUnlockTracker.registerType1Unlock(clientId)
@@ -165,11 +168,12 @@ abstract class ClientUnlockService(
                         wifiDevice = wifiDevice,
                         clientUnlockServiceParams = clientUnlockServiceParams,
                         timeoutMillis = timeoutMillis,
+                        retryIntervalMillis = retryIntervalMillis,
                         matchingBtDevice = matchingBt
                     )
                 }
                 bluetoothDevice != null -> {
-                    unlockSucceeded = unlockBluetoothDevice(bluetoothDevice, clientUnlockServiceParams, timeoutMillis)
+                    unlockSucceeded = unlockBluetoothDevice(bluetoothDevice, clientUnlockServiceParams, timeoutMillis, retryIntervalMillis)
                 }
                 else -> {
                     fastDebugLog("Device where id = $clientId doesn't exist. $this Skip ")
@@ -194,12 +198,14 @@ abstract class ClientUnlockService(
     private suspend fun unlockBluetoothDevice(
         bluetoothDevice: BluetoothDevice,
         clientUnlockServiceParams: ClientUnlockServiceParams,
-        timeoutMillis: Long
+        timeoutMillis: Long,
+        retryIntervalMillis: Long
     ): Boolean {
         return doUnlock(
             clientUnlockServiceParams = clientUnlockServiceParams,
             deviceName = bluetoothDevice.name,
-            timeoutMillis = timeoutMillis
+            timeoutMillis = timeoutMillis,
+            retryIntervalMillis = retryIntervalMillis
         ) { tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams) }
     }
 
@@ -207,6 +213,7 @@ abstract class ClientUnlockService(
         wifiDevice: WifiDevice,
         clientUnlockServiceParams: ClientUnlockServiceParams,
         timeoutMillis: Long,
+        retryIntervalMillis: Long,
         matchingBtDevice: BluetoothDevice? = null
     ): Boolean {
         val macAddress = wifiDevice.wolMacAddress
@@ -216,7 +223,8 @@ abstract class ClientUnlockService(
         return doUnlock(
             clientUnlockServiceParams = clientUnlockServiceParams,
             deviceName = wifiDevice.deviceName,
-            timeoutMillis = timeoutMillis
+            timeoutMillis = timeoutMillis,
+            retryIntervalMillis = retryIntervalMillis
         ) {
             val wifiSuccess = tryWifiDeviceUnlock(
                 wifiDevice = wifiDevice,
@@ -238,6 +246,7 @@ abstract class ClientUnlockService(
         clientUnlockServiceParams: ClientUnlockServiceParams,
         deviceName: String,
         timeoutMillis: Long,
+        retryIntervalMillis: Long = DEFAULT_ATTEMPT_INTERVAL,
         unlockBlock: suspend () -> Boolean
     ): Boolean = coroutineScope {
         var isSuccess = false
@@ -304,7 +313,7 @@ abstract class ClientUnlockService(
                         fastDebugLog("Unlock failed. Restart $this (attempt ${currentAttemptCount.get()})")
                         if (isActive && clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout) {
                             val elapsedThisAttempt = System.currentTimeMillis() - attemptStartTime
-                            val delayNeeded = (ATTEMPT_INTERVAL - elapsedThisAttempt).coerceAtLeast(500L)
+                            val delayNeeded = (retryIntervalMillis - elapsedThisAttempt).coerceAtLeast(100L)
                             delay(delayNeeded)
                         }
                     }
@@ -446,7 +455,7 @@ abstract class ClientUnlockService(
     companion object {
         const val CLIENT_UNLOCK_SERVICE_PARAMS_KEY = "CLIENT_UNLOCK_SERVICE_PARAMS_KEY"
         const val ACTION_CANCEL_UNLOCK = "com.xxmrk888ytxx.portal.ACTION_CANCEL_UNLOCK"
-        const val ATTEMPT_INTERVAL = 5000L
+        const val DEFAULT_ATTEMPT_INTERVAL = 5000L
         const val RETRY_UNLOCK_TIMEOUT = 5000L
         const val NOTIFICATION_DISMISS_DELAY = 30_000L
         const val WOL_UNLOCK_TIMEOUT_MILLS = 360_000L

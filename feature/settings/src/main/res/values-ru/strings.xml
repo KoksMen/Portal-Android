@@ -112,4 +112,26 @@
     <string name="conflict_behavior_defer_desc">Придержать запрос и показать только если разблокировка 1-го типа не удалась</string>
     <string name="conflict_behavior_reject_title">Отклонять / игнорировать</string>
     <string name="conflict_behavior_reject_desc">Игнорировать входящие запросы 2-го типа пока активен 1-й тип</string>
+    <string name="type1_retry_interval_title">Частота запросов разблокировки</string>
+    <string name="type1_retry_interval_desc">Интервал между попытками: %1$d сек</string>
+    <string name="choose_type1_retry_interval">Частота повтора запросов</string>
+    <string name="interval_1_sec">1 секунда</string>
+    <string name="interval_1_sec_desc">Постоянный опрос, мгновенное срабатывание</string>
+    <string name="interval_2_sec">2 секунды</string>
+    <string name="interval_2_sec_desc">Быстрое подключение</string>
+    <string name="interval_3_sec">3 секунды</string>
+    <string name="interval_3_sec_desc">Оптимальная быстрая разблокировка</string>
+    <string name="interval_5_sec">5 секунд (по умолчанию)</string>
+    <string name="interval_5_sec_desc">Стандартный сбалансированный интервал</string>
+    <string name="interval_10_sec">10 секунд</string>
+    <string name="interval_10_sec_desc">Сниженная нагрузка на сеть</string>
+    <string name="interval_15_sec">15 секунд</string>
+    <string name="interval_15_sec_desc">Экономия заряда батареи</string>
+    <string name="interval_30_sec">30 секунд</string>
+    <string name="interval_30_sec_desc">Редкие попытки</string>
+    <string name="interval_60_sec">60 секунд (1 минута)</string>
+    <string name="interval_60_sec_desc">Для долгой фоновой работы</string>
+    <string name="custom_interval">Свой интервал</string>
+    <string name="enter_seconds">Секунды (1–300)</string>
+    <string name="apply">Применить</string>
 </resources>

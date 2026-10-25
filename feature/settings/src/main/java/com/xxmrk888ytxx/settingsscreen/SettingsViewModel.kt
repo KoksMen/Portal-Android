@@ -48,7 +48,8 @@ class SettingsViewModel @Inject constructor(
         provideSettingsState.isWatchDogFastCheckEnabled,
         provideSettingsState.isWatchDogAlarmClockEnabled,
         provideSettingsState.type1UnlockTimeoutMinutes,
-        provideSettingsState.type2IncomingConflictBehavior
+        provideSettingsState.type2IncomingConflictBehavior,
+        provideSettingsState.type1RetryIntervalSeconds
     ) { flowArray ->
         val isBiometricProtectionEnabled = flowArray[0] as Boolean
         val appVersion = flowArray[1] as String
@@ -68,6 +69,7 @@ class SettingsViewModel @Inject constructor(
         val isWatchDogAlarmClockEnabled = flowArray[15] as Boolean
         val type1UnlockTimeoutMinutes = flowArray[16] as Int
         val type2IncomingConflictBehavior = flowArray[17] as String
+        val type1RetryIntervalSeconds = flowArray[18] as Int
 
         ScreenState(
             bottomSheetState = bottomSheetState,
@@ -87,7 +89,8 @@ class SettingsViewModel @Inject constructor(
             isWatchDogFastCheckEnabled = isWatchDogFastCheckEnabled,
             isWatchDogAlarmClockEnabled = isWatchDogAlarmClockEnabled,
             type1UnlockTimeoutMinutes = type1UnlockTimeoutMinutes,
-            type2IncomingConflictBehavior = type2IncomingConflictBehavior
+            type2IncomingConflictBehavior = type2IncomingConflictBehavior,
+            type1RetryIntervalSeconds = type1RetryIntervalSeconds
         )
     }.stateWhileSubscribed()
 
@@ -148,6 +151,8 @@ class SettingsViewModel @Inject constructor(
             is SettingsScreenEvent.OnType1TimeoutSelected -> changeType1Timeout(event.minutes)
             SettingsScreenEvent.OnType2ConflictClicked -> showSelectType2ConflictDialog()
             is SettingsScreenEvent.OnType2ConflictSelected -> changeType2Conflict(event.behavior)
+            SettingsScreenEvent.OnType1RetryIntervalClicked -> showSelectType1RetryIntervalDialog()
+            is SettingsScreenEvent.OnType1RetryIntervalSelected -> changeType1RetryInterval(event.seconds)
         }
     }
 
@@ -186,6 +191,17 @@ class SettingsViewModel @Inject constructor(
 
     private fun changeType2Conflict(behavior: String) = viewModelScope.launch {
         changeSettingsContract.updateType2IncomingConflictBehavior(behavior)
+        bottomSheetState.value = BottomSheetState.None
+    }
+
+    private fun showSelectType1RetryIntervalDialog() = viewModelScope.launch {
+        bottomSheetState.value = BottomSheetState.SelectType1RetryIntervalDialog(
+            currentSeconds = provideSettingsState.type1RetryIntervalSeconds.first()
+        )
+    }
+
+    private fun changeType1RetryInterval(seconds: Int) = viewModelScope.launch {
+        changeSettingsContract.updateType1RetryIntervalSeconds(seconds)
         bottomSheetState.value = BottomSheetState.None
     }
 
