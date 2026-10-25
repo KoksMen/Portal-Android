@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
 import android.os.Build
 import android.os.IBinder
 import androidx.core.content.getSystemService
@@ -32,6 +33,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
@@ -39,6 +41,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 abstract class ClientUnlockService(
     private val wolManager: WOLManager,
@@ -236,79 +239,112 @@ abstract class ClientUnlockService(
         deviceName: String,
         timeoutMillis: Long,
         unlockBlock: suspend () -> Boolean
-    ): Boolean {
+    ): Boolean = coroutineScope {
         var isSuccess = false
         val startTime = System.currentTimeMillis()
-        var attemptCount = 0
+        val currentAttemptCount = AtomicInteger(1)
         val notificationManager = getSystemService<NotificationManager>()
 
-        withTimeoutOrNull(timeoutMillis) {
-            do {
-                val attemptStartTime = System.currentTimeMillis()
-                attemptCount++
-                if (clientUnlockServiceParams.isSendWOLRequest) {
+        val resolvedDeviceName = deviceName.ifEmpty {
+            if (clientUnlockServiceParams.isSendWOLRequest) getString(R.string.unlocking_the_device_wol)
+            else getString(R.string.unlocking_the_device)
+        }
+        val cancelIntent = PendingIntent.getService(
+            this@ClientUnlockService,
+            notificationId,
+            Intent(this@ClientUnlockService, this@ClientUnlockService::class.java).apply { action = ACTION_CANCEL_UNLOCK },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val smallIconRes = appIconManager?.getAppIconSmallIconRes()
+            ?: com.xxmrk888ytxx.unlockservice.R.drawable.portal
+        val iconBitmap = appIconManager?.getAppIconBitmap() ?: getActiveAppIconBitmap()
+
+        // Update countdown timer every second in notification
+        val tickerJob = if (clientUnlockServiceParams.isSendWOLRequest) {
+            launch {
+                while (isActive) {
                     val elapsed = System.currentTimeMillis() - startTime
                     val remaining = (timeoutMillis - elapsed).coerceAtLeast(0L)
                     val remainingSec = (remaining / 1000) % 60
                     val remainingMin = (remaining / 1000) / 60
                     val remainingStr = String.format(Locale.getDefault(), "%d:%02d", remainingMin, remainingSec)
-                    val statusText = getString(R.string.wol_unlock_status_format, attemptCount, remainingStr)
+                    val statusText = getString(R.string.wol_unlock_status_format, currentAttemptCount.get(), remainingStr)
 
                     val updatedNotification = buildWolNotification(
-                        deviceName = deviceName.ifEmpty { getString(R.string.unlocking_the_device_wol) },
+                        deviceName = resolvedDeviceName,
                         statusText = statusText,
                         isIndeterminate = true,
-                        isOngoing = true
+                        isOngoing = true,
+                        cancelIntent = cancelIntent,
+                        smallIconRes = smallIconRes,
+                        iconBitmap = iconBitmap
                     )
                     notificationManager?.notify(notificationId, updatedNotification)
+                    delay(1000L)
                 }
+            }
+        } else null
 
-                val isUnlockSuccessful = unlockBlock()
-                if (isUnlockSuccessful) {
-                    fastDebugLog("Unlock success. Stop $this")
-                    isSuccess = true
-                    val successNotification = buildWolNotification(
-                        deviceName = deviceName.ifEmpty {
-                            if (clientUnlockServiceParams.isSendWOLRequest) getString(R.string.unlocking_the_device_wol)
-                            else getString(R.string.unlocking_the_device)
-                        },
-                        statusText = getString(R.string.wol_unlock_success),
-                        isIndeterminate = false,
-                        isOngoing = false,
-                        timeoutAfterMillis = NOTIFICATION_DISMISS_DELAY
-                    )
-                    stopForeground(STOP_FOREGROUND_DETACH)
-                    notificationManager?.notify(notificationId, successNotification)
-                    scheduleNotificationDismiss(notificationManager, notificationId, NOTIFICATION_DISMISS_DELAY)
-                    return@withTimeoutOrNull
-                } else {
-                    fastDebugLog("Unlock failed. Restart $this (attempt $attemptCount)")
-                    if (isActive && clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout) {
-                        val elapsedThisAttempt = System.currentTimeMillis() - attemptStartTime
-                        val delayNeeded = (ATTEMPT_INTERVAL - elapsedThisAttempt).coerceAtLeast(500L)
-                        delay(delayNeeded)
+        try {
+            withTimeoutOrNull(timeoutMillis) {
+                var isFirstAttempt = true
+                do {
+                    val attemptStartTime = System.currentTimeMillis()
+                    if (!isFirstAttempt) {
+                        currentAttemptCount.incrementAndGet()
                     }
-                }
-            } while (isActive && clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout)
+                    isFirstAttempt = false
+
+                    val isUnlockSuccessful = unlockBlock()
+                    if (isUnlockSuccessful) {
+                        fastDebugLog("Unlock success. Stop $this")
+                        isSuccess = true
+                        return@withTimeoutOrNull
+                    } else {
+                        fastDebugLog("Unlock failed. Restart $this (attempt ${currentAttemptCount.get()})")
+                        if (isActive && clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout) {
+                            val elapsedThisAttempt = System.currentTimeMillis() - attemptStartTime
+                            val delayNeeded = (ATTEMPT_INTERVAL - elapsedThisAttempt).coerceAtLeast(500L)
+                            delay(delayNeeded)
+                        }
+                    }
+                } while (isActive && clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout)
+            }
+        } finally {
+            tickerJob?.cancel()
         }
 
-        if (!isSuccess) {
+        if (isSuccess) {
+            val successNotification = buildWolNotification(
+                deviceName = resolvedDeviceName,
+                statusText = getString(R.string.wol_unlock_success),
+                isIndeterminate = false,
+                isOngoing = false,
+                timeoutAfterMillis = NOTIFICATION_DISMISS_DELAY,
+                cancelIntent = cancelIntent,
+                smallIconRes = smallIconRes,
+                iconBitmap = iconBitmap
+            )
+            stopForeground(STOP_FOREGROUND_DETACH)
+            notificationManager?.notify(notificationId, successNotification)
+            scheduleNotificationDismiss(notificationManager, notificationId, NOTIFICATION_DISMISS_DELAY)
+        } else {
             fastDebugLog("Unlock timeout or failed. Stop $this")
             val failNotification = buildWolNotification(
-                deviceName = deviceName.ifEmpty {
-                    if (clientUnlockServiceParams.isSendWOLRequest) getString(R.string.unlocking_the_device_wol)
-                    else getString(R.string.unlocking_the_device)
-                },
+                deviceName = resolvedDeviceName,
                 statusText = getString(R.string.wol_unlock_failed),
                 isIndeterminate = false,
                 isOngoing = false,
-                timeoutAfterMillis = NOTIFICATION_DISMISS_DELAY
+                timeoutAfterMillis = NOTIFICATION_DISMISS_DELAY,
+                cancelIntent = cancelIntent,
+                smallIconRes = smallIconRes,
+                iconBitmap = iconBitmap
             )
             stopForeground(STOP_FOREGROUND_DETACH)
             notificationManager?.notify(notificationId, failNotification)
             scheduleNotificationDismiss(notificationManager, notificationId, NOTIFICATION_DISMISS_DELAY)
         }
-        return isSuccess
+        return@coroutineScope isSuccess
     }
 
     private fun buildWolNotification(
@@ -316,17 +352,17 @@ abstract class ClientUnlockService(
         statusText: String,
         isIndeterminate: Boolean,
         isOngoing: Boolean,
-        timeoutAfterMillis: Long? = null
+        timeoutAfterMillis: Long? = null,
+        cancelIntent: PendingIntent? = null,
+        smallIconRes: Int = appIconManager?.getAppIconSmallIconRes() ?: com.xxmrk888ytxx.unlockservice.R.drawable.portal,
+        iconBitmap: Bitmap? = appIconManager?.getAppIconBitmap() ?: getActiveAppIconBitmap()
     ): Notification {
-        val cancelIntent = PendingIntent.getService(
+        val resolvedCancelIntent = cancelIntent ?: PendingIntent.getService(
             this,
             notificationId,
             Intent(this, this::class.java).apply { action = ACTION_CANCEL_UNLOCK },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val smallIconRes = appIconManager?.getAppIconSmallIconRes()
-            ?: com.xxmrk888ytxx.unlockservice.R.drawable.portal
-        val iconBitmap = appIconManager?.getAppIconBitmap() ?: getActiveAppIconBitmap()
         return buildNotification(channelId) {
             setContentTitle(deviceName)
             setContentText(statusText)
@@ -345,7 +381,7 @@ abstract class ClientUnlockService(
                     Notification.Action.Builder(
                         null,
                         getString(android.R.string.cancel),
-                        cancelIntent
+                        resolvedCancelIntent
                     ).build()
                 )
             }
