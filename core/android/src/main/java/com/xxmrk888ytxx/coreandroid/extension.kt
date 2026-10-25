@@ -5,6 +5,9 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.NotificationManager.IMPORTANCE_LOW
 import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import androidx.core.content.getSystemService
 import kotlinx.coroutines.CancellationException
 
@@ -35,6 +38,38 @@ inline fun Context.buildNotification(
     val notificationBuilder = Notification.Builder(this, channelId)
 
     return notificationBuilder.apply(configuration).build()
+}
+
+fun Context.getActiveAppIconBitmap(width: Int = 192, height: Int = 192): Bitmap? {
+    return try {
+        val targetWidth = try {
+            resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_width)
+        } catch (_: Exception) {
+            width
+        }.coerceIn(128, 256)
+
+        val targetHeight = try {
+            resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_height)
+        } catch (_: Exception) {
+            height
+        }.coerceIn(128, 256)
+
+        val pm = packageManager
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            setPackage(packageName)
+        }
+        val resolveInfo = pm.queryIntentActivities(intent, 0).firstOrNull()
+        val drawable = resolveInfo?.loadIcon(pm) ?: applicationInfo.loadIcon(pm) ?: return null
+
+        val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, targetWidth, targetHeight)
+        drawable.draw(canvas)
+        bitmap
+    } catch (e: Exception) {
+        null
+    }
 }
 
 inline fun saveCall(isPrintToDebug: Boolean = true, block: () -> Unit) {

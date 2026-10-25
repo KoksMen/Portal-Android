@@ -11,9 +11,11 @@ import android.os.IBinder
 import androidx.core.content.getSystemService
 import com.xxmrk888ytxx.coreandroid.buildNotification
 import com.xxmrk888ytxx.coreandroid.fastDebugLog
+import com.xxmrk888ytxx.coreandroid.getActiveAppIconBitmap
 import com.xxmrk888ytxx.portal.R
 import com.xxmrk888ytxx.portal.data.service.model.ClientUnlockServiceParams
 import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
+import com.xxmrk888ytxx.portal.domain.AppIconManager
 import com.xxmrk888ytxx.portal.domain.BluetoothDeviceRepository
 import com.xxmrk888ytxx.portal.domain.DeviceUnlockManager
 import com.xxmrk888ytxx.portal.domain.SettingsRepository
@@ -44,7 +46,8 @@ abstract class ClientUnlockService(
     private val activeUnlockTracker: ActiveUnlockTracker,
     private val wakeLockManager: WakeLockManager,
     private val settingsRepository: SettingsRepository,
-    private val unlockRequestHandler: dagger.Lazy<UnlockRequestHandler>
+    private val unlockRequestHandler: dagger.Lazy<UnlockRequestHandler>,
+    protected val appIconManager: AppIconManager? = null,
 ) : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -236,10 +239,14 @@ abstract class ClientUnlockService(
             Intent(this, this::class.java).apply { action = ACTION_CANCEL_UNLOCK },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val smallIconRes = appIconManager?.getAppIconSmallIconRes()
+            ?: com.xxmrk888ytxx.unlockservice.R.drawable.portal
+        val iconBitmap = appIconManager?.getAppIconBitmap() ?: getActiveAppIconBitmap()
         return buildNotification(channelId) {
             setContentTitle(deviceName)
             setContentText(statusText)
-            setSmallIcon(com.xxmrk888ytxx.unlockservice.R.drawable.portal)
+            setSmallIcon(smallIconRes)
+            iconBitmap?.let { setLargeIcon(it) }
             if (isIndeterminate) {
                 setProgress(0, 0, true)
             } else {

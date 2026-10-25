@@ -1,6 +1,8 @@
 package com.xxmrk888ytxx.unlockservice.core
 
+import android.app.NotificationManager
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Binder
@@ -9,6 +11,7 @@ import android.os.IBinder
 import com.xxmrk888ytxx.coreandroid.buildForegroundServiceNotificationChannel
 import com.xxmrk888ytxx.coreandroid.buildNotification
 import com.xxmrk888ytxx.coreandroid.fastDebugLog
+import com.xxmrk888ytxx.coreandroid.getActiveAppIconBitmap
 import com.xxmrk888ytxx.unlockservice.R
 import com.xxmrk888ytxx.unlockservice.exception.PermissionDeniedException
 import com.xxmrk888ytxx.unlockservice.exception.UnlockServiceException
@@ -68,6 +71,7 @@ abstract class UnlockService : Service(), UnlockServiceController {
         val notification = buildNotification(FOREGROUND_CHANNEL_ID) {
             setContentTitle(getString(R.string.unlock_background_service))
             setSmallIcon(R.drawable.portal)
+            getActiveAppIconBitmap()?.let { setLargeIcon(it) }
             setContentText(getString(notificationInfo.textResId))
             setOngoing(true)
         }
@@ -76,8 +80,30 @@ abstract class UnlockService : Service(), UnlockServiceController {
         } else {
             startForeground(notificationInfo.id, notification)
         }
-        startForeground(notificationInfo.id, notification)
         fastDebugLog("Service: $this onCreate")
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_UPDATE_NOTIFICATION) {
+            updateNotification()
+        }
+        return super.onStartCommand(intent, flags, startId)
+    }
+
+    private fun updateNotification() {
+        try {
+            val notification = buildNotification(FOREGROUND_CHANNEL_ID) {
+                setContentTitle(getString(R.string.unlock_background_service))
+                setSmallIcon(R.drawable.portal)
+                getActiveAppIconBitmap()?.let { setLargeIcon(it) }
+                setContentText(getString(notificationInfo.textResId))
+                setOngoing(true)
+            }
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            nm?.notify(notificationInfo.id, notification)
+        } catch (e: Exception) {
+            fastDebugLog("Failed to update notification: ${e.message}")
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = UnlockBinder()
@@ -169,5 +195,6 @@ abstract class UnlockService : Service(), UnlockServiceController {
 
     companion object {
         const val FOREGROUND_CHANNEL_ID = "foreground_notification"
+        const val ACTION_UPDATE_NOTIFICATION = "com.xxmrk888ytxx.unlockservice.ACTION_UPDATE_NOTIFICATION"
     }
 }

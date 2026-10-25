@@ -5,8 +5,10 @@ import android.content.Intent
 import android.os.IBinder
 import com.xxmrk888ytxx.coreandroid.buildForegroundServiceNotificationChannel
 import com.xxmrk888ytxx.coreandroid.buildNotification
+import com.xxmrk888ytxx.coreandroid.getActiveAppIconBitmap
 import com.xxmrk888ytxx.portal.R
 import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
+import com.xxmrk888ytxx.portal.domain.AppIconManager
 import com.xxmrk888ytxx.portal.domain.BluetoothDeviceRepository
 import com.xxmrk888ytxx.portal.domain.DeviceUnlockManager
 import com.xxmrk888ytxx.portal.domain.SettingsRepository
@@ -24,7 +26,8 @@ class UnlockFromShortcutService @Inject constructor(
     activeUnlockTracker: ActiveUnlockTracker,
     wakeLockManager: WakeLockManager,
     settingsRepository: SettingsRepository,
-    unlockRequestHandler: dagger.Lazy<UnlockRequestHandler>
+    unlockRequestHandler: dagger.Lazy<UnlockRequestHandler>,
+    appIconManager: AppIconManager
 ) : ClientUnlockService(
     wolManager = wolManager,
     deviceUnlockManager = deviceUnlockManager,
@@ -33,7 +36,8 @@ class UnlockFromShortcutService @Inject constructor(
     activeUnlockTracker = activeUnlockTracker,
     wakeLockManager = wakeLockManager,
     settingsRepository = settingsRepository,
-    unlockRequestHandler = unlockRequestHandler
+    unlockRequestHandler = unlockRequestHandler,
+    appIconManager = appIconManager
 ) {
     override val channelId: String
         get() = SHORTCUT_UNLOCK_SERVICE_CHANNEL
@@ -47,7 +51,10 @@ class UnlockFromShortcutService @Inject constructor(
     override val notification: Notification
         get() = buildNotification(SHORTCUT_UNLOCK_SERVICE_CHANNEL) {
             setContentTitle(getString(R.string.unlocking_the_device))
-            setSmallIcon(com.xxmrk888ytxx.unlockservice.R.drawable.portal)
+            val smallIconRes = appIconManager?.getAppIconSmallIconRes()
+                ?: com.xxmrk888ytxx.unlockservice.R.drawable.portal
+            setSmallIcon(smallIconRes)
+            (appIconManager?.getAppIconBitmap() ?: getActiveAppIconBitmap())?.let { setLargeIcon(it) }
             setContentText(getString(R.string.please_wait_a_moment))
             setProgress(0, 0, true)
             setOngoing(true)

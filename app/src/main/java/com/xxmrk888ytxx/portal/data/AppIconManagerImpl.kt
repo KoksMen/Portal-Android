@@ -7,22 +7,20 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.graphics.Color as AndroidColor
-import android.graphics.Paint
-import android.graphics.Path
-import android.graphics.RectF
 import android.net.Uri
+import androidx.core.content.ContextCompat
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.xxmrk888ytxx.coreandroid.fastDebugLog
+import com.xxmrk888ytxx.coreandroid.getActiveAppIconBitmap
 import com.xxmrk888ytxx.portal.R
 import com.xxmrk888ytxx.portal.domain.AppIconManager
 import com.xxmrk888ytxx.portal.view.mainActivity.MainActivity
+import com.xxmrk888ytxx.settingsscreen.model.AppIcon
 import java.io.File
 import java.io.FileOutputStream
 import javax.inject.Inject
-import kotlin.math.max
 
 class AppIconManagerImpl @Inject constructor(
     private val context: Context
@@ -39,6 +37,9 @@ class AppIconManagerImpl @Inject constructor(
         "anime_3" to "com.xxmrk888ytxx.portal.MainActivityAnime3"
     )
 
+    @Volatile
+    private var cachedIconId: String? = null
+
     private val customIconFile: File
         get() = File(context.filesDir, "custom_app_icon.png")
 
@@ -46,7 +47,29 @@ class AppIconManagerImpl @Inject constructor(
         return if (customIconFile.exists()) customIconFile else null
     }
 
+    override fun getCurrentAppIconId(): String {
+        cachedIconId?.let { return it }
+
+        val packageManager = context.packageManager
+        val packageName = context.packageName
+        for ((id, aliasName) in aliases) {
+            if (id == "default") continue
+            try {
+                val state = packageManager.getComponentEnabledSetting(ComponentName(packageName, aliasName))
+                if (state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
+                    cachedIconId = id
+                    return id
+                }
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
+        cachedIconId = "default"
+        return "default"
+    }
+
     override fun setAppIcon(iconId: String) {
+        cachedIconId = iconId
         val packageManager = context.packageManager
         val packageName = context.packageName
         val targetAlias = aliases[iconId] ?: aliases["default"]!!
@@ -72,6 +95,81 @@ class AppIconManagerImpl @Inject constructor(
             } catch (e: Exception) {
                 fastDebugLog("Failed to set component state for $aliasName: ${e.message}")
             }
+        }
+
+        // Notify background services if running
+        try {
+            val updateIntent = Intent("com.xxmrk888ytxx.unlockservice.ACTION_UPDATE_NOTIFICATION").apply {
+                setPackage(context.packageName)
+            }
+            val wifiIntent = Intent(updateIntent).setClassName(
+                context.packageName,
+                "com.xxmrk888ytxx.unlockservice.wifiService.WifiUnlockService"
+            )
+            context.startService(wifiIntent)
+            val btIntent = Intent(updateIntent).setClassName(
+                context.packageName,
+                "com.xxmrk888ytxx.unlockservice.bluetoothService.BluetoothUnlockService"
+            )
+            context.startService(btIntent)
+        } catch (e: Exception) {
+            fastDebugLog("Failed to notify background services: ${e.message}")
+        }
+    }
+
+    override fun getAppIconBitmap(iconId: String?): Bitmap? {
+        return try {
+            val id = iconId ?: getCurrentAppIconId()
+
+            if (id == "custom") {
+                getCustomAppIconFile()?.let { file ->
+                    val customBmp = BitmapFactory.decodeFile(file.absolutePath)
+                    if (customBmp != null) {
+                        return scaleToNotificationSize(customBmp)
+                    }
+                }
+            }
+
+            // High-resolution pre-rendered squircle PNG preview from settings
+            val preset = AppIcon.fromId(id)
+            val previewBitmap = BitmapFactory.decodeResource(context.resources, preset.previewRes)
+            if (previewBitmap != null) {
+                return scaleToNotificationSize(previewBitmap)
+            }
+
+            // Fallback: use context.getActiveAppIconBitmap()
+            context.getActiveAppIconBitmap()
+        } catch (e: Exception) {
+            fastDebugLog("Failed to getAppIconBitmap: ${e.message}")
+            context.getActiveAppIconBitmap()
+        }
+    }
+
+    override fun getAppIconSmallIconRes(iconId: String?): Int {
+        val id = iconId ?: getCurrentAppIconId()
+        return when (id) {
+            "classic" -> R.drawable.ic_launcher_classic_foreground
+            else -> R.drawable.ic_launcher_foreground
+        }
+    }
+
+    private fun scaleToNotificationSize(original: Bitmap): Bitmap {
+        val targetWidth = try {
+            context.resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_width)
+        } catch (_: Exception) {
+            192
+        }.coerceIn(128, 256)
+
+        val targetHeight = try {
+            context.resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_height)
+        } catch (_: Exception) {
+            192
+        }.coerceIn(128, 256)
+
+        return if (original.width != targetWidth || original.height != targetHeight) {
+            Bitmap.createScaledBitmap(original, targetWidth, targetHeight, true)
+        } else {
+            original
         }
     }
 
@@ -117,5 +215,4 @@ class AppIconManagerImpl @Inject constructor(
 
         return ShortcutManagerCompat.requestPinShortcut(context, shortcutInfo, null)
     }
-
 }

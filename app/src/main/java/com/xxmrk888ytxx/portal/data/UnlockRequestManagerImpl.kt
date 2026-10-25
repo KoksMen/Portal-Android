@@ -12,6 +12,8 @@ import com.xxmrk888ytxx.coreandroid.buildNotificationChannel
 import com.xxmrk888ytxx.coreandroid.fastDebugLog
 import com.xxmrk888ytxx.portal.R
 import com.xxmrk888ytxx.portal.data.wear.WearDecisionPayloadValue
+import com.xxmrk888ytxx.coreandroid.getActiveAppIconBitmap
+import com.xxmrk888ytxx.portal.domain.AppIconManager
 import com.xxmrk888ytxx.portal.domain.IncomingUnlockDecisionCoordinator
 import com.xxmrk888ytxx.portal.domain.PermissionManager
 import com.xxmrk888ytxx.portal.domain.SettingsRepository
@@ -41,6 +43,7 @@ class UnlockRequestManagerImpl @Inject constructor(
     private val unlockMessageSender: UnlockMessageSender,
     private val decisionCoordinator: IncomingUnlockDecisionCoordinator,
     private val settingsRepository: SettingsRepository,
+    private val appIconManager: AppIconManager,
 ) : UnlockRequestManager {
 
     private val unlockScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -145,8 +148,11 @@ class UnlockRequestManagerImpl @Inject constructor(
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+            val iconBitmap = appIconManager.getAppIconBitmap() ?: context.getActiveAppIconBitmap()
+            val smallIconRes = appIconManager.getAppIconSmallIconRes()
             val notification = context.buildNotification(NOTIFICATION_CHANNEL_ID) {
-                setSmallIcon(R.drawable.ic_launcher_foreground)
+                setSmallIcon(smallIconRes)
+                iconBitmap?.let { setLargeIcon(it) }
                 setContentTitle(
                     context.getString(
                         R.string.is_requesting_unlocking,
