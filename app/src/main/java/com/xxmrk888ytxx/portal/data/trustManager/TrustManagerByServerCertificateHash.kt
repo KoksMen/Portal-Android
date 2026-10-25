@@ -13,7 +13,11 @@ class TrustManagerByServerCertificateHash(
     override fun handleCertificate(certificate: X509Certificate?) {
         if (certificate == null) throw IllegalArgumentException("Server not provided certificate")
         val serverCertificateHash = certificateManager.getX509CertificateFingerprint(certificate)
-        if (serverCertificateHash != expectedServerHash) throw BadServerCertificateException("Server certificate is not match with trust certificate." +
-                "ServerCertificateFingerprint: $serverCertificateHash, trusted: $expectedServerHash")
+        if (!serverCertificateHash.equals(expectedServerHash, ignoreCase = true)) {
+            throw BadServerCertificateException(
+                "Server certificate does not match trusted certificate. " +
+                "ServerCertificateFingerprint: $serverCertificateHash, trusted: $expectedServerHash"
+            )
+        }
     }
 }

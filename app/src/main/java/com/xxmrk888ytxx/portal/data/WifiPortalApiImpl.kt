@@ -26,21 +26,24 @@ class WifiPortalApiImpl @Inject constructor(
         certificate: Certificate
     ): Result<WifiPairResult> = runCatching(Dispatchers.IO) {
         val client = networkFactory.createPairClient(certificate)
-        val response = client.post("https://$host:29170/api/pair") {
-            contentType(ContentType.Application.Json)
-            setBody(WifiPairBody(pairCode))
+        try {
+            val response = client.post("https://$host:29170/api/pair") {
+                contentType(ContentType.Application.Json)
+                setBody(WifiPairBody(pairCode))
+            }
+            fastDebugLog(response.bodyAsText())
+            val body: PairResponse = response.body()
+            val serverHash = response.headers[NetworkFactory.SERVER_CERTIFICATE_HASH_HEADER]
+                ?: throw IllegalStateException("Server certificate hash not found")
+
+            return@runCatching WifiPairResult(
+                clientId = body.clientId,
+                certificateFingerprint = serverHash,
+                macAddress = body.macAddress?.replace('-',':')
+            )
+        } finally {
+            client.close()
         }
-        fastDebugLog(response.bodyAsText())
-        val body: PairResponse = response.body()
-        val serverHash = response.headers[NetworkFactory.SERVER_CERTIFICATE_HASH_HEADER]
-            ?: throw IllegalStateException("Server certificate hash not found")
-
-
-        return@runCatching WifiPairResult(
-            clientId = body.clientId,
-            certificateFingerprint = serverHash,
-            macAddress = body.macAddress?.replace('-',':')
-        )
     }
 
     override suspend fun unlock(
@@ -50,9 +53,19 @@ class WifiPortalApiImpl @Inject constructor(
         clientCertificate: Certificate
     ): Result<Unit> = runCatching(Dispatchers.IO) {
         val client = networkFactory.createUnlockClient(clientCertificate, serverCertificateHash)
-        client.post("https://$host:29170/api/unlock") {
-            contentType(ContentType.Application.Json)
-            setBody(WifiUnlockBody(clientId))
+        try {
+            val response = client.post("https://$host:29170/api/unlock") {
+                contentType(ContentType.Application.Json)
+                setBody(WifiUnlockBody(clientId))
+            }
+            if (response.status.value !in 200..299) {
+                val errorBody = runCatching { response.bodyAsText() }.getOrDefault("")
+                fastDebugLog("Unlock request failed with status: ${response.status} ($errorBody)")
+                throw IllegalStateException("Unlock request failed with status: ${response.status}: $errorBody")
+            }
+            fastDebugLog("Unlock request succeeded on $host for client $clientId")
+        } finally {
+            client.close()
         }
     }
 

@@ -14,10 +14,6 @@ import com.xxmrk888ytxx.portal.domain.UnlockRequestHandler
 import com.xxmrk888ytxx.portal.domain.WakeLockManager
 import com.xxmrk888ytxx.portal.domain.WOLManager
 import com.xxmrk888ytxx.portal.domain.WifiDeviceRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import javax.inject.Inject
 
 class WOLUnlockService @Inject constructor(
@@ -39,9 +35,8 @@ class WOLUnlockService @Inject constructor(
     settingsRepository = settingsRepository,
     unlockRequestHandler = unlockRequestHandler
 ) {
-
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
+    override val channelId: String
+        get() = WOL_UNLOCK_CHANNEL_ID
     override val notificationId: Int
         get() = NOTIFICATION_ID
     override val action: String
@@ -51,6 +46,7 @@ class WOLUnlockService @Inject constructor(
             setContentTitle(getString(R.string.unlocking_the_device_wol))
             setSmallIcon(com.xxmrk888ytxx.unlockservice.R.drawable.portal)
             setContentText(getString(R.string.please_wait_a_moment))
+            setProgress(0, 0, true)
             setOngoing(true)
         }
 
@@ -62,11 +58,6 @@ class WOLUnlockService @Inject constructor(
             WOL_UNLOCK_CHANNEL_ID,
             getString(R.string.unblocking_via_wol)
         )
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        serviceScope.cancel()
     }
 
     companion object {

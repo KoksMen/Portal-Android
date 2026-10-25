@@ -27,4 +27,7 @@
     <string name="allow_entry">Allow sign-in</string>
     <string name="wi_fi" translatable="false">Wi-Fi</string>
     <string name="bluetooth" translatable="false">Bluetooth</string>
+    <string name="wol_unlock_status_format">Attempt %1$d • Remaining %2$s</string>
+    <string name="wol_unlock_success">Device unlocked successfully</string>
+    <string name="wol_unlock_failed">Failed to unlock device</string>
 </resources>

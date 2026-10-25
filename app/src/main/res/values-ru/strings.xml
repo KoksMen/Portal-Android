@@ -26,4 +26,7 @@
     <string name="allow_entry">Разрешить вход</string>
     <string name="wi_fi" translatable="false">Wi-Fi</string>
     <string name="bluetooth" translatable="false">Bluetooth</string>
+    <string name="wol_unlock_status_format">Попытка %1$d • Осталось %2$s</string>
+    <string name="wol_unlock_success">Устройство успешно разблокировано</string>
+    <string name="wol_unlock_failed">Не удалось разблокировать устройство</string>
 </resources>

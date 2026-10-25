@@ -35,6 +35,9 @@ class UnlockFromShortcutService @Inject constructor(
     settingsRepository = settingsRepository,
     unlockRequestHandler = unlockRequestHandler
 ) {
+    override val channelId: String
+        get() = SHORTCUT_UNLOCK_SERVICE_CHANNEL
+
     override val notificationId: Int
         get() = NOTIFICATION_ID
 
@@ -46,6 +49,7 @@ class UnlockFromShortcutService @Inject constructor(
             setContentTitle(getString(R.string.unlocking_the_device))
             setSmallIcon(com.xxmrk888ytxx.unlockservice.R.drawable.portal)
             setContentText(getString(R.string.please_wait_a_moment))
+            setProgress(0, 0, true)
             setOngoing(true)
         }
 

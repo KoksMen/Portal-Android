@@ -34,7 +34,7 @@
     <string name="mac_address_saved">MAC-адрес сохранен</string>
     <string name="send_a_wal_request">Отправить WOL-запрос</string>
     <string name="send_unlock_requests">Отправлять запросы на разблокировку</string>
-    <string name="the_application_will_attempt_to_unlock_your_pc_within_3_minutes">Приложение будет пытаться разблокировать ваш ПК в течение 3 минут.</string>
+    <string name="the_application_will_attempt_to_unlock_your_pc_within_3_minutes">Приложение будет пытаться разблокировать ваш ПК в течение настроенного времени.</string>
     <string name="send">Отправить</string>
     <string name="cancel">Отмена</string>
     <string name="wol_request_sent">WOL-запрос отправлен</string>

@@ -106,11 +106,12 @@ fun <T> Intent.getParsableExtraCompat(name: String, clazz: Class<T>): T? {
 
 suspend fun MdnsManager.waitHostForClient(
     clientId: String,
-): String? = withTimeoutOrNull(MDSN_DISCOVERY_TIMEOUT) {
+    timeoutMs: Long = 800L
+): String? = withTimeoutOrNull(timeoutMs) {
     foundedHosts.first { it.containsKey(clientId) }[clientId]?.hostIp
 }
 
-private const val MDSN_DISCOVERY_TIMEOUT = 3000L
+private const val MDSN_DISCOVERY_TIMEOUT = 800L
 
 fun ConfigurationScreenUnlockMethod.toDomainModel(): UnlockMethod = when (this) {
     is ConfigurationScreenUnlockMethod.Automatic -> UnlockMethod.Automatic

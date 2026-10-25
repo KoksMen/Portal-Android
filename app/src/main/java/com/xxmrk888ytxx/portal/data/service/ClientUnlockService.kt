@@ -1,12 +1,17 @@
 package com.xxmrk888ytxx.portal.data.service
 
 import android.app.Notification
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import androidx.core.content.getSystemService
+import com.xxmrk888ytxx.coreandroid.buildNotification
 import com.xxmrk888ytxx.coreandroid.fastDebugLog
+import com.xxmrk888ytxx.portal.R
 import com.xxmrk888ytxx.portal.data.service.model.ClientUnlockServiceParams
 import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
 import com.xxmrk888ytxx.portal.domain.BluetoothDeviceRepository
@@ -21,6 +26,7 @@ import com.xxmrk888ytxx.portal.domain.model.WifiDevice
 import com.xxmrk888ytxx.portal.utils.getParsableExtraCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -28,6 +34,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.Locale
 
 abstract class ClientUnlockService(
     private val wolManager: WOLManager,
@@ -41,7 +48,9 @@ abstract class ClientUnlockService(
 ) : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var currentUnlockJob: Job? = null
 
+    protected abstract val channelId: String
     protected abstract val notificationId: Int
     protected abstract val notification: Notification
     protected abstract val action: String
@@ -49,6 +58,13 @@ abstract class ClientUnlockService(
     override fun onBind(p0: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_CANCEL_UNLOCK) {
+            fastDebugLog("Cancel action received in ClientUnlockService")
+            currentUnlockJob?.cancel()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val clientUnlockServiceParams = intent?.getParsableExtraCompat(
             CLIENT_UNLOCK_SERVICE_PARAMS_KEY,
             ClientUnlockServiceParams::class.java
@@ -63,9 +79,10 @@ abstract class ClientUnlockService(
         } else {
             startForeground(notificationId, notification)
         }
-        serviceScope.launch {
+        currentUnlockJob = serviceScope.launch {
             handleUnlock(clientUnlockServiceParams)
-        }.invokeOnCompletion { stopSelf(startId) }
+        }
+        currentUnlockJob?.invokeOnCompletion { stopSelf(startId) }
         return START_NOT_STICKY
     }
 
@@ -111,7 +128,11 @@ abstract class ClientUnlockService(
         clientUnlockServiceParams: ClientUnlockServiceParams,
         timeoutMillis: Long
     ): Boolean {
-        return doUnlock(clientUnlockServiceParams, timeoutMillis) { tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams) }
+        return doUnlock(
+            clientUnlockServiceParams = clientUnlockServiceParams,
+            deviceName = bluetoothDevice.name,
+            timeoutMillis = timeoutMillis
+        ) { tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams) }
     }
 
     private suspend fun doUnlockWifiDevice(
@@ -123,7 +144,11 @@ abstract class ClientUnlockService(
         if (macAddress == null) {
             fastDebugLog("Mac address is null. WOL unavailable for deviceId ${wifiDevice.clientId} ")
         }
-        return doUnlock(clientUnlockServiceParams, timeoutMillis) {
+        return doUnlock(
+            clientUnlockServiceParams = clientUnlockServiceParams,
+            deviceName = wifiDevice.deviceName,
+            timeoutMillis = timeoutMillis
+        ) {
             tryWifiDeviceUnlock(
                 wifiDevice = wifiDevice,
                 macAddress = macAddress,
@@ -134,24 +159,105 @@ abstract class ClientUnlockService(
 
     private suspend fun doUnlock(
         clientUnlockServiceParams: ClientUnlockServiceParams,
+        deviceName: String,
         timeoutMillis: Long,
         unlockBlock: suspend () -> Boolean
     ): Boolean {
         var isSuccess = false
+        val startTime = System.currentTimeMillis()
+        var attemptCount = 0
+        val notificationManager = getSystemService<NotificationManager>()
+
         withTimeoutOrNull(timeoutMillis) {
             do {
+                attemptCount++
+                if (clientUnlockServiceParams.isSendWOLRequest) {
+                    val elapsed = System.currentTimeMillis() - startTime
+                    val remaining = (timeoutMillis - elapsed).coerceAtLeast(0L)
+                    val remainingSec = (remaining / 1000) % 60
+                    val remainingMin = (remaining / 1000) / 60
+                    val remainingStr = String.format(Locale.getDefault(), "%d:%02d", remainingMin, remainingSec)
+                    val statusText = getString(R.string.wol_unlock_status_format, attemptCount, remainingStr)
+
+                    val updatedNotification = buildWolNotification(
+                        deviceName = deviceName.ifEmpty { getString(R.string.unlocking_the_device_wol) },
+                        statusText = statusText,
+                        isIndeterminate = true,
+                        isOngoing = true
+                    )
+                    notificationManager?.notify(notificationId, updatedNotification)
+                }
+
                 val isUnlockSuccessful = unlockBlock()
                 if (isUnlockSuccessful) {
                     fastDebugLog("Unlock success. Stop $this")
                     isSuccess = true
+                    if (clientUnlockServiceParams.isSendWOLRequest) {
+                        val successNotification = buildWolNotification(
+                            deviceName = deviceName.ifEmpty { getString(R.string.unlocking_the_device_wol) },
+                            statusText = getString(R.string.wol_unlock_success),
+                            isIndeterminate = false,
+                            isOngoing = false
+                        )
+                        stopForeground(STOP_FOREGROUND_DETACH)
+                        notificationManager?.notify(notificationId, successNotification)
+                    }
                     return@withTimeoutOrNull
                 } else {
-                    fastDebugLog("Unlock failed. Restart $this")
+                    fastDebugLog("Unlock failed. Restart $this (attempt $attemptCount)")
                     delay(RETRY_UNLOCK_TIMEOUT)
                 }
             } while (isActive && clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout)
-        } ?: fastDebugLog("Unlock timeout. Stop $this")
+        } ?: run {
+            fastDebugLog("Unlock timeout. Stop $this")
+            if (clientUnlockServiceParams.isSendWOLRequest) {
+                val failNotification = buildWolNotification(
+                    deviceName = deviceName.ifEmpty { getString(R.string.unlocking_the_device_wol) },
+                    statusText = getString(R.string.wol_unlock_failed),
+                    isIndeterminate = false,
+                    isOngoing = false
+                )
+                stopForeground(STOP_FOREGROUND_DETACH)
+                notificationManager?.notify(notificationId, failNotification)
+            }
+        }
         return isSuccess
+    }
+
+    private fun buildWolNotification(
+        deviceName: String,
+        statusText: String,
+        isIndeterminate: Boolean,
+        isOngoing: Boolean
+    ): Notification {
+        val cancelIntent = PendingIntent.getService(
+            this,
+            notificationId,
+            Intent(this, this::class.java).apply { action = ACTION_CANCEL_UNLOCK },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return buildNotification(channelId) {
+            setContentTitle(deviceName)
+            setContentText(statusText)
+            setSmallIcon(com.xxmrk888ytxx.unlockservice.R.drawable.portal)
+            if (isIndeterminate) {
+                setProgress(0, 0, true)
+            } else {
+                setProgress(0, 0, false)
+            }
+            setOngoing(isOngoing)
+            setOnlyAlertOnce(true)
+            setAutoCancel(!isOngoing)
+            if (isOngoing) {
+                addAction(
+                    Notification.Action.Builder(
+                        null,
+                        getString(android.R.string.cancel),
+                        cancelIntent
+                    ).build()
+                )
+            }
+        }
     }
 
     private suspend fun tryWifiDeviceUnlock(
@@ -199,6 +305,7 @@ abstract class ClientUnlockService(
 
     companion object {
         const val CLIENT_UNLOCK_SERVICE_PARAMS_KEY = "CLIENT_UNLOCK_SERVICE_PARAMS_KEY"
+        const val ACTION_CANCEL_UNLOCK = "com.xxmrk888ytxx.portal.ACTION_CANCEL_UNLOCK"
         const val RETRY_UNLOCK_TIMEOUT = 2000L
         const val WOL_UNLOCK_TIMEOUT_MILLS = 360_000L
     }

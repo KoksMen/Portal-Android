@@ -68,7 +68,7 @@ class SettingsRepositoryImpl @Inject constructor(
         preferencesStorage.getProperty(watchDogFastCheckEnabledKey, true),
         preferencesStorage.getProperty(watchDogAlarmClockEnabledKey, true),
         preferencesStorage.getProperty(type1UnlockTimeoutMinutesKey, 6),
-        preferencesStorage.getProperty(type2IncomingConflictBehaviorKey, "show")
+        preferencesStorage.getProperty(type2IncomingConflictBehaviorKey, "defer")
     ) { flowArray ->
         val biometricAuthEnabled = flowArray[0] as Boolean
         val additionalPasswordAuthEnabled = flowArray[1] as Boolean

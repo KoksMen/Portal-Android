@@ -15,9 +15,6 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
-import io.ktor.client.plugins.websocket.WebSockets
-import io.ktor.client.plugins.websocket.pingInterval
-import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
@@ -33,7 +30,6 @@ import javax.net.ssl.SSLPeerUnverifiedException
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509KeyManager
-import kotlin.time.Duration.Companion.seconds
 
 class NetworkFactory @Inject constructor(
     private val certificateManager: CertificateManager,
@@ -59,13 +55,9 @@ class NetworkFactory @Inject constructor(
         certificate: Certificate,
         trustedServerHashFingerprint: String
     ): HttpClient =
-        createDefaultClient {
+        createDefaultClient(connectTimeoutMs = 3000L, requestTimeoutMs = 5000L) {
             engine {
                 mtlsConfig(certificate, trustedServerHashFingerprint)
-                preconfigured = OkHttpClient.Builder()
-                    .pingInterval(3, TimeUnit.SECONDS)
-                    .build()
-
             }
         }
 
@@ -83,6 +75,8 @@ class NetworkFactory @Inject constructor(
     }
 
     private fun createDefaultClient(
+        connectTimeoutMs: Long = 10_000L,
+        requestTimeoutMs: Long = 10_000L,
         block: HttpClientConfig<OkHttpConfig>.() -> Unit = {}
     ): HttpClient {
         return HttpClient(OkHttp) {
@@ -95,15 +89,11 @@ class NetworkFactory @Inject constructor(
             }
 
             install(HttpTimeout) {
-                requestTimeoutMillis = 10_000
-                connectTimeoutMillis = 10_000
-                socketTimeoutMillis = 10_000
+                requestTimeoutMillis = requestTimeoutMs
+                connectTimeoutMillis = connectTimeoutMs
+                socketTimeoutMillis = requestTimeoutMs
             }
 
-            install(WebSockets) {
-                contentConverter = KotlinxWebsocketSerializationConverter(jsonConverter)
-                pingInterval = 3.seconds
-            }
             block()
         }
     }

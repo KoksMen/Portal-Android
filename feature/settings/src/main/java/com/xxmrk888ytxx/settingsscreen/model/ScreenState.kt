@@ -18,5 +18,5 @@ data class ScreenState(
     val isWatchDogFastCheckEnabled: Boolean = true,
     val isWatchDogAlarmClockEnabled: Boolean = true,
     val type1UnlockTimeoutMinutes: Int = 6,
-    val type2IncomingConflictBehavior: String = "show"
+    val type2IncomingConflictBehavior: String = "defer"
 )

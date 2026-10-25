@@ -18,12 +18,12 @@ class WOLServiceManagerImpl @Inject constructor(
     ) {
         val clientUnlockServiceParams = ClientUnlockServiceParams(
             clientId = clientId,
-            tryToRetryUnlockUntilSuccessOrTimeout = trySendUnlockRequests,
+            tryToRetryUnlockUntilSuccessOrTimeout = true,
             isSendWOLRequest = true,
-            isSendUnlockRequest = trySendUnlockRequests
+            isSendUnlockRequest = true
         )
         val intent = Intent(context, WOLUnlockService::class.java).apply {
-            putExtra(ClientUnlockService.CLIENT_UNLOCK_SERVICE_PARAMS_KEY,clientUnlockServiceParams)
+            putExtra(ClientUnlockService.CLIENT_UNLOCK_SERVICE_PARAMS_KEY, clientUnlockServiceParams)
             action = WOLUnlockService.WOL_UNLOCK_ACTION
         }
         context.startForegroundService(intent)
