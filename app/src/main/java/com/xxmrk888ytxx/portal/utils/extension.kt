@@ -106,9 +106,12 @@ fun <T> Intent.getParsableExtraCompat(name: String, clazz: Class<T>): T? {
 
 suspend fun MdnsManager.waitHostForClient(
     clientId: String,
-    timeoutMs: Long = 800L
-): String? = withTimeoutOrNull(timeoutMs) {
-    foundedHosts.first { it.containsKey(clientId) }[clientId]?.hostIp
+    timeoutMs: Long = 2000L
+): String? {
+    getCachedHost(clientId)?.let { return it }
+    return withTimeoutOrNull(timeoutMs) {
+        foundedHosts.first { it.containsKey(clientId) }[clientId]?.hostIp
+    }
 }
 
 private const val MDSN_DISCOVERY_TIMEOUT = 800L

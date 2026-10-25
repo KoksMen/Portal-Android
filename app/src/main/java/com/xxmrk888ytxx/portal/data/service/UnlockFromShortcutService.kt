@@ -11,6 +11,7 @@ import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
 import com.xxmrk888ytxx.portal.domain.AppIconManager
 import com.xxmrk888ytxx.portal.domain.BluetoothDeviceRepository
 import com.xxmrk888ytxx.portal.domain.DeviceUnlockManager
+import com.xxmrk888ytxx.portal.domain.MdnsManager
 import com.xxmrk888ytxx.portal.domain.SettingsRepository
 import com.xxmrk888ytxx.portal.domain.UnlockRequestHandler
 import com.xxmrk888ytxx.portal.domain.WakeLockManager
@@ -27,7 +28,8 @@ class UnlockFromShortcutService @Inject constructor(
     wakeLockManager: WakeLockManager,
     settingsRepository: SettingsRepository,
     unlockRequestHandler: dagger.Lazy<UnlockRequestHandler>,
-    appIconManager: AppIconManager
+    appIconManager: AppIconManager,
+    mdnsManager: MdnsManager
 ) : ClientUnlockService(
     wolManager = wolManager,
     deviceUnlockManager = deviceUnlockManager,
@@ -37,7 +39,8 @@ class UnlockFromShortcutService @Inject constructor(
     wakeLockManager = wakeLockManager,
     settingsRepository = settingsRepository,
     unlockRequestHandler = unlockRequestHandler,
-    appIconManager = appIconManager
+    appIconManager = appIconManager,
+    mdnsManager = mdnsManager
 ) {
     override val channelId: String
         get() = SHORTCUT_UNLOCK_SERVICE_CHANNEL
@@ -72,7 +75,7 @@ class UnlockFromShortcutService @Inject constructor(
 
     companion object {
         const val SHORTCUT_UNLOCK_SERVICE_CHANNEL = "SHORTCUT_UNLOCK_SERVICE"
-        private const val NOTIFICATION_ID = 4653
+        const val NOTIFICATION_ID = 4653
         const val SHORTCUT_UNLOCK_ACTION = "com.xxmrk888ytxx.portal.SHORTCUT_UNLOCK_ACTION"
     }
 }

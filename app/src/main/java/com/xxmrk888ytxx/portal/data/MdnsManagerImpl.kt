@@ -47,6 +47,8 @@ class MdnsManagerImpl @Inject constructor(
 
     override val foundedHosts: Flow<Map<String, MdnsHost>> = _foundedHosts.asStateFlow()
 
+    override fun getCachedHost(clientId: String): String? = _foundedHosts.value[clientId]?.hostIp
+
     private val discoveryListener = object : NsdManager.DiscoveryListener {
         override fun onDiscoveryStarted(serviceType: String?) {
             fastDebugLog("onDiscoveryStarted $serviceType")
@@ -140,7 +142,7 @@ class MdnsManagerImpl @Inject constructor(
                 multicastLock.release()
             }
         }catch (_: Exception) {}
-        _foundedHosts.update { emptyMap() }
+        // Keep cached hosts across discovery restarts
     }
 
 

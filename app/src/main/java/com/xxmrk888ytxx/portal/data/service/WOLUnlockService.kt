@@ -11,6 +11,7 @@ import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
 import com.xxmrk888ytxx.portal.domain.AppIconManager
 import com.xxmrk888ytxx.portal.domain.BluetoothDeviceRepository
 import com.xxmrk888ytxx.portal.domain.DeviceUnlockManager
+import com.xxmrk888ytxx.portal.domain.MdnsManager
 import com.xxmrk888ytxx.portal.domain.SettingsRepository
 import com.xxmrk888ytxx.portal.domain.UnlockRequestHandler
 import com.xxmrk888ytxx.portal.domain.WakeLockManager
@@ -27,7 +28,8 @@ class WOLUnlockService @Inject constructor(
     wakeLockManager: WakeLockManager,
     settingsRepository: SettingsRepository,
     unlockRequestHandler: dagger.Lazy<UnlockRequestHandler>,
-    appIconManager: AppIconManager
+    appIconManager: AppIconManager,
+    mdnsManager: MdnsManager
 ) : ClientUnlockService(
     wolManager = wolManager,
     deviceUnlockManager = deviceUnlockManager,
@@ -37,7 +39,8 @@ class WOLUnlockService @Inject constructor(
     wakeLockManager = wakeLockManager,
     settingsRepository = settingsRepository,
     unlockRequestHandler = unlockRequestHandler,
-    appIconManager = appIconManager
+    appIconManager = appIconManager,
+    mdnsManager = mdnsManager
 ) {
     override val channelId: String
         get() = WOL_UNLOCK_CHANNEL_ID
@@ -69,7 +72,7 @@ class WOLUnlockService @Inject constructor(
 
     companion object {
         const val WOL_UNLOCK_CHANNEL_ID = "WOL_UNLOCK_CHANNEL_ID"
-        private const val NOTIFICATION_ID = 3456
+        const val NOTIFICATION_ID = 3456
         const val WOL_UNLOCK_ACTION = "com.xxmrk888ytxx.portal.WOL_UNLOCK_ACTION"
     }
 }

@@ -29,6 +29,10 @@ class ActiveUnlockTrackerImpl @Inject constructor() : ActiveUnlockTracker {
         return activeType1Unlocks.contains(clientId)
     }
 
+    override fun isAnyType1UnlockActive(): Boolean {
+        return activeType1Unlocks.isNotEmpty()
+    }
+
     override fun deferType2Request(clientId: String, request: UnlockServiceRequest) {
         deferredType2Requests[clientId] = request
         fastDebugLog("ActiveUnlockTracker: Deferred Type 2 request for $clientId: $request")

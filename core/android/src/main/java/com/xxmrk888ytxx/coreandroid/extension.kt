@@ -98,3 +98,23 @@ fun String.formatToMacAddress(): String? {
 
     return sb.toString()
 }
+
+fun findIpInArpTable(macAddress: String): String? {
+    val cleanTargetMac = macAddress.replace("-", ":").lowercase().trim()
+    return try {
+        java.io.File("/proc/net/arp").useLines { lines ->
+            lines.drop(1).mapNotNull { line ->
+                val tokens = line.split("\\s+".toRegex())
+                if (tokens.size >= 4) {
+                    val ip = tokens[0]
+                    val flags = tokens[2]
+                    val mac = tokens[3].lowercase().trim()
+                    if (flags != "0x0" && mac == cleanTargetMac) ip else null
+                } else null
+            }.firstOrNull()
+        }
+    } catch (_: Exception) {
+        null
+    }
+}
+

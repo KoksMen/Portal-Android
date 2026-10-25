@@ -5,4 +5,5 @@ import kotlinx.coroutines.flow.Flow
 
 interface MdnsManager {
     val foundedHosts: Flow<Map<String, MdnsHost>>
+    fun getCachedHost(clientId: String): String? = null
 }

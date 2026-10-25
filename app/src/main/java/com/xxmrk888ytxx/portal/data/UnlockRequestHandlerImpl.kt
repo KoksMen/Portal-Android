@@ -40,15 +40,18 @@ class UnlockRequestHandlerImpl @Inject constructor(
             return
         }
 
-        if (activeUnlockTracker.isType1UnlockActive(clientId)) {
+        val isType1Active = activeUnlockTracker.isType1UnlockActive(clientId) ||
+            (activeUnlockTracker.isAnyType1UnlockActive() && settingsRepository.portalSettings.first().type2IncomingConflictBehavior != "show")
+
+        if (isType1Active) {
             val conflictBehavior = settingsRepository.portalSettings.first().type2IncomingConflictBehavior
             when (conflictBehavior) {
                 "reject" -> {
-                    fastDebugLog("Type 1 unlock is active for $clientId. Dropping Type 2 request as configured (reject)")
+                    fastDebugLog("Type 1 unlock is active. Dropping Type 2 request for $clientId as configured (reject)")
                     return
                 }
                 "defer" -> {
-                    fastDebugLog("Type 1 unlock is active for $clientId. Deferring Type 2 request as configured (defer)")
+                    fastDebugLog("Type 1 unlock is active. Deferring Type 2 request for $clientId as configured (defer)")
                     activeUnlockTracker.deferType2Request(clientId, request)
                     return
                 }

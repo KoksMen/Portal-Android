@@ -64,6 +64,9 @@ class WifiPortalApiImpl @Inject constructor(
                 throw IllegalStateException("Unlock request failed with status: ${response.status}: $errorBody")
             }
             fastDebugLog("Unlock request succeeded on $host for client $clientId")
+        } catch (e: Exception) {
+            fastDebugLog("WifiPortalApiImpl: unlock failed on $host for client $clientId: ${e.message}")
+            throw e
         } finally {
             client.close()
         }
