@@ -3,6 +3,8 @@ package com.xxmrk888ytxx.portal.data
 import com.xxmrk888ytxx.coreandroid.fastDebugLog
 import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
 import com.xxmrk888ytxx.portal.domain.model.UnlockServiceRequest
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
@@ -10,6 +12,13 @@ class ActiveUnlockTrackerImpl @Inject constructor() : ActiveUnlockTracker {
 
     private val activeType1Unlocks = ConcurrentHashMap.newKeySet<String>()
     private val deferredType2Requests = ConcurrentHashMap<String, UnlockServiceRequest>()
+    private val _unlockSuccessEvents = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    override val unlockSuccessEvents: SharedFlow<String> = _unlockSuccessEvents
+
+    override fun notifyUnlockSuccess(clientId: String) {
+        fastDebugLog("ActiveUnlockTracker: notifyUnlockSuccess for $clientId")
+        _unlockSuccessEvents.tryEmit(clientId)
+    }
 
     override fun registerType1Unlock(clientId: String) {
         activeType1Unlocks.add(clientId)
@@ -22,6 +31,7 @@ class ActiveUnlockTrackerImpl @Inject constructor() : ActiveUnlockTracker {
         if (wasSuccessful) {
             // Drop deferred requests if Type 1 succeeded!
             deferredType2Requests.remove(clientId)
+            notifyUnlockSuccess(clientId)
         }
     }
 

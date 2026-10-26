@@ -3,6 +3,7 @@ package com.xxmrk888ytxx.portal.data
 import com.xxmrk888ytxx.portal.data.wear.WearDecisionPayloadValue
 import com.xxmrk888ytxx.portal.data.wear.WearFinalStatusPayloadValue
 import com.xxmrk888ytxx.portal.domain.IncomingUnlockDecisionCoordinator
+import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
 import com.xxmrk888ytxx.portal.domain.IncomingUnlockFinalStatus
 import com.xxmrk888ytxx.portal.domain.UnlockMessageSender
 import com.xxmrk888ytxx.portal.domain.WearPhoneGateway
@@ -16,7 +17,8 @@ import javax.inject.Inject
 
 class IncomingUnlockDecisionCoordinatorImpl @Inject constructor(
     private val unlockMessageSender: UnlockMessageSender,
-    private val wearPhoneGateway: WearPhoneGateway
+    private val wearPhoneGateway: WearPhoneGateway,
+    private val activeUnlockTracker: dagger.Lazy<ActiveUnlockTracker>
 ) : IncomingUnlockDecisionCoordinator {
 
     private val mutex = Mutex()
@@ -111,6 +113,9 @@ class IncomingUnlockDecisionCoordinatorImpl @Inject constructor(
         val status = when (decision) {
             WearDecisionPayloadValue.UNLOCK -> WearFinalStatusPayloadValue.UNLOCKED
             WearDecisionPayloadValue.CANCEL -> WearFinalStatusPayloadValue.CANCELED
+        }
+        if (decision == WearDecisionPayloadValue.UNLOCK) {
+            activeUnlockTracker.get().notifyUnlockSuccess(pendingRequest.clientId)
         }
         sendFinalStatus(
             decisionId = decisionId,
