@@ -48,6 +48,9 @@ class DeviceUnlockManagerImpl @Inject constructor(
 
             val primaryHost = dynamicHost ?: wifiDevice.host
             fastDebugLog("In unlockWifiDevice attempting primary host: $primaryHost (dynamic: $dynamicHost, saved: ${wifiDevice.host})")
+            if (primaryHost.isEmpty()) {
+                throw IllegalStateException("Primary host is empty")
+            }
 
             val primaryResult = wifiPortalApi.unlock(
                 host = primaryHost,
@@ -66,7 +69,7 @@ class DeviceUnlockManagerImpl @Inject constructor(
 
             val fallbackHost = if (primaryHost == dynamicHost && wifiDevice.host.isNotEmpty() && wifiDevice.host != dynamicHost) {
                 wifiDevice.host
-            } else if (primaryHost == wifiDevice.host && dynamicHost != null && dynamicHost != wifiDevice.host) {
+            } else if (primaryHost == wifiDevice.host && dynamicHost != null && dynamicHost.isNotEmpty() && dynamicHost != wifiDevice.host) {
                 dynamicHost
             } else null
 
@@ -90,11 +93,14 @@ class DeviceUnlockManagerImpl @Inject constructor(
             primaryResult.getOrThrow()
         }
 
-    override suspend fun unlockBluetoothDevice(bluetoothDevice: BluetoothDevice): Result<Unit> =
+    override suspend fun unlockBluetoothDevice(
+        bluetoothDevice: BluetoothDevice,
+        timeoutMs: Long
+    ): Result<Unit> =
         runCatching(
             Dispatchers.IO
         ) {
-            if (!bluetoothPortalApi.unlock(bluetoothDevice)) {
+            if (!bluetoothPortalApi.unlock(bluetoothDevice, timeoutMs)) {
                 throw UnlockRequestRejectedException()
             }
         }

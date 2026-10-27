@@ -17,6 +17,10 @@ import com.xxmrk888ytxx.portal.R
 import com.xxmrk888ytxx.portal.data.service.model.ClientUnlockServiceParams
 import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
 import com.xxmrk888ytxx.portal.domain.AppIconManager
+import com.xxmrk888ytxx.portal.domain.BluetoothPortalApi
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import com.xxmrk888ytxx.portal.domain.BluetoothDeviceRepository
 import com.xxmrk888ytxx.portal.domain.DeviceUnlockManager
 import com.xxmrk888ytxx.portal.domain.MdnsManager
@@ -215,7 +219,7 @@ abstract class ClientUnlockService(
             timeoutMillis = timeoutMillis,
             retryIntervalMillis = retryIntervalMillis,
             matchingClientId = matchingWifiClientId
-        ) { tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams) }
+        ) { tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams, timeoutMs = minOf(retryIntervalMillis, 4000L)) }
     }
 
     private suspend fun doUnlockWifiDevice(
@@ -246,7 +250,7 @@ abstract class ClientUnlockService(
                 }
                 val btJob = if (matchingBtDevice != null && clientUnlockServiceParams.isSendUnlockRequest) {
                     async {
-                        tryBluetoothDeviceUnlock(matchingBtDevice, clientUnlockServiceParams)
+                        tryBluetoothDeviceUnlock(matchingBtDevice, clientUnlockServiceParams, timeoutMs = 2500L)
                     }
                 } else null
 
@@ -346,20 +350,31 @@ abstract class ClientUnlockService(
 
                     val currentIntervalSeconds = settingsRepository.portalSettings.first().type1RetryIntervalSeconds
                     val currentIntervalMillis = (currentIntervalSeconds * 1000L).coerceIn(1000L, 300_000L)
-                    val attemptTimeout = maxOf(currentIntervalMillis, 4000L).coerceAtMost(10_000L)
+                    val attemptTimeout = currentIntervalMillis.coerceIn(1500L, 10_000L)
 
-                    val isUnlockSuccessful = coroutineScope {
-                        val job = async { unlockBlock() }
-                        currentAttemptJob = job
-                        val result = withTimeoutOrNull(attemptTimeout) {
-                            try {
-                                job.await()
-                            } catch (_: Exception) {
-                                false
+                    val isUnlockSuccessful = try {
+                        coroutineScope {
+                            val attemptJob = async(Dispatchers.IO) {
+                                unlockBlock()
                             }
-                        } ?: false
-                        currentAttemptJob = null
-                        result
+                            currentAttemptJob = attemptJob
+                            try {
+                                withTimeout(attemptTimeout) {
+                                    attemptJob.await()
+                                }
+                            } finally {
+                                currentAttemptJob = null
+                                attemptJob.cancel()
+                            }
+                        }
+                    } catch (e: TimeoutCancellationException) {
+                        fastDebugLog("Attempt ${currentAttemptCount.get()} timed out after ${attemptTimeout}ms")
+                        false
+                    } catch (e: CancellationException) {
+                        if (isSuccess || isCompleted) true else false
+                    } catch (e: Exception) {
+                        fastDebugLog("Attempt ${currentAttemptCount.get()} failed: ${e.message}")
+                        false
                     }
 
                     if (isSuccess || isUnlockSuccessful) {
@@ -461,7 +476,8 @@ abstract class ClientUnlockService(
                 wolManager.sendWOLRequest(macAddress)
             }
             if (clientUnlockServiceParams.isSendUnlockRequest) {
-                val res = deviceUnlockManager.unlockWifiDevice(wifiDevice)
+                val currentDevice = wifiDeviceRepository.getDeviceById(wifiDevice.clientId).first() ?: wifiDevice
+                val res = deviceUnlockManager.unlockWifiDevice(currentDevice)
                 if (res.isFailure) {
                     fastDebugLog("tryWifiDeviceUnlock failed: ${res.exceptionOrNull()?.message}")
                 }
@@ -476,11 +492,12 @@ abstract class ClientUnlockService(
 
     private suspend fun tryBluetoothDeviceUnlock(
         bluetoothDevice: BluetoothDevice,
-        clientUnlockServiceParams: ClientUnlockServiceParams
+        clientUnlockServiceParams: ClientUnlockServiceParams,
+        timeoutMs: Long = BluetoothPortalApi.DEFAULT_TIMEOUT
     ): Boolean {
         return try {
             if (clientUnlockServiceParams.isSendUnlockRequest) {
-                val res = deviceUnlockManager.unlockBluetoothDevice(bluetoothDevice)
+                val res = deviceUnlockManager.unlockBluetoothDevice(bluetoothDevice, timeoutMs)
                 if (res.isFailure) {
                     fastDebugLog("tryBluetoothDeviceUnlock failed: ${res.exceptionOrNull()?.message}")
                 }

@@ -6,5 +6,9 @@ import com.xxmrk888ytxx.portal.domain.model.PairedBluetoothDevice
 
 interface BluetoothPortalApi {
     suspend fun pair(pairedBluetoothDevice: PairedBluetoothDevice, pairCode: String): BluetoothPairResult
-    suspend fun unlock(bluetoothDevice: BluetoothDevice): Boolean
+    suspend fun unlock(bluetoothDevice: BluetoothDevice, timeoutMs: Long = DEFAULT_TIMEOUT): Boolean
+
+    companion object {
+        const val DEFAULT_TIMEOUT = 3000L
+    }
 }

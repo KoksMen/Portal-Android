@@ -15,6 +15,7 @@ import com.xxmrk888ytxx.portal.exception.BluetoothDisabledException
 import com.xxmrk888ytxx.portal.exception.BluetoothNotSupportedException
 import com.xxmrk888ytxx.portal.exception.BluetoothPermissionNotGrantedException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
@@ -78,8 +79,16 @@ class BluetoothManagerImpl @Inject constructor(
             val socket = androidBluetoothDevice.createRfcommSocketToServiceRecord(
                 UUID.fromString(PORTAL_BLUETOOTH_SERVICE_UUID)
             )
-            socket.connect()
-            return@withContext RfcommBluetoothConnection(socket).also { addCashedConnection(macAddress, it) }
+            try {
+                coroutineContext[Job]?.invokeOnCompletion {
+                    try { socket.close() } catch (_: Exception) {}
+                }
+                socket.connect()
+                return@withContext RfcommBluetoothConnection(socket).also { addCashedConnection(macAddress, it) }
+            } catch (e: Throwable) {
+                try { socket.close() } catch (_: Exception) {}
+                throw e
+            }
         }
     }
 

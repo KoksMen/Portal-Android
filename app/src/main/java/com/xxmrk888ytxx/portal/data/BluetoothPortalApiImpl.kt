@@ -48,8 +48,11 @@ class BluetoothPortalApiImpl @Inject constructor(
         }
     }
 
-    override suspend fun unlock(bluetoothDevice: BluetoothDevice): Boolean = withContext(Dispatchers.IO) {
-        withTimeout(OPERATION_TIMEOUT) {
+    override suspend fun unlock(
+        bluetoothDevice: BluetoothDevice,
+        timeoutMs: Long
+    ): Boolean = withContext(Dispatchers.IO) {
+        withTimeout(timeoutMs) {
             val bluetoothConnection = bluetoothManager.openConnection(bluetoothDevice.macAddress)
             val jsonString = json.encodeToString(BluetoothUnlockRequest(bluetoothDevice.clientId))
             bluetoothConnection.sendData(jsonString.toByteArray())
