@@ -16,6 +16,7 @@ import com.xxmrk888ytxx.portal.exception.BluetoothNotSupportedException
 import com.xxmrk888ytxx.portal.exception.BluetoothPermissionNotGrantedException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
@@ -66,35 +67,53 @@ class BluetoothManagerImpl @Inject constructor(
     }
 
     override suspend fun openConnection(macAddress: String): BluetoothConnection = withContext(Dispatchers.IO) {
+        checkBluetoothStateAndPermission()
         openConnectionMutex.withLock {
-            checkBluetoothStateAndPermission()
+
             val cashedConnection = getCashedConnection(macAddress)
             if (cashedConnection != null) {
                 cashedConnection.acquire()
                 return@withContext cashedConnection
             }
-            val androidBluetoothDevice =
-                bluetoothAdapter.bondedDevices.firstOrNull { it.address == macAddress }
-                    ?: throw IllegalArgumentException("Device $macAddress not paired")
-            val socket = androidBluetoothDevice.createRfcommSocketToServiceRecord(
-                UUID.fromString(PORTAL_BLUETOOTH_SERVICE_UUID)
-            )
-            try {
-                coroutineContext[Job]?.invokeOnCompletion {
-                    try { socket.close() } catch (_: Exception) {}
-                }
-                socket.connect()
-                return@withContext RfcommBluetoothConnection(socket).also { addCashedConnection(macAddress, it) }
-            } catch (e: Throwable) {
-                try { socket.close() } catch (_: Exception) {}
-                throw e
-            }
         }
-    }
+        val androidBluetoothDevice =
+            bluetoothAdapter.bondedDevices.firstOrNull { it.address == macAddress }
+                ?: throw IllegalArgumentException("Device $macAddress not paired")
+        val socket = androidBluetoothDevice.createRfcommSocketToServiceRecord(
+            UUID.fromString(PORTAL_BLUETOOTH_SERVICE_UUID)
+        )
+        val watchdogJob = CoroutineScope(Dispatchers.IO).launch {
+            delay(CONNECT_TIMEOUT_MS)
+            try { socket.close() } catch (_: Exception) {}
+        }
+        try {
+            coroutineContext[Job]?.invokeOnCompletion {
+                try { socket.close() } catch (_: Exception) {}
+            }
+            socket.connect()
+            watchdogJob.cancel()
+            val connection = RfcommBluetoothConnection(socket)
+            openConnectionMutex.withLock {
+                val existing = getCashedConnection(macAddress)
+                if (existing != null) {
+                    existing.acquire()
+                    connection.release()
+                    return@withContext existing
+                }
+                addCashedConnection(macAddress, connection)
+            }
+            return@withContext connection
+        } catch (e: Throwable) {
+            watchdogJob.cancel()
+            try { socket.close() } catch (_: Exception) {}
+            throw e
+        }
 
+    }
     override suspend fun updatePairedDeviceMacAddresses() = withContext(Dispatchers.IO) {
         updatePairedDeviceMutex.withLock {
             try {
+    
                 checkBluetoothStateAndPermission()
                 _pairedDevices.value = bluetoothAdapter.bondedDevices.map { it.address }.toSet()
             }catch (e: Exception) {
@@ -126,6 +145,7 @@ class BluetoothManagerImpl @Inject constructor(
 
     companion object {
         const val PORTAL_BLUETOOTH_SERVICE_UUID = "E0CBF06C-CD8B-4647-BB8A-263B43F0F974"
+        const val CONNECT_TIMEOUT_MS = 3500L
     }
 
 }

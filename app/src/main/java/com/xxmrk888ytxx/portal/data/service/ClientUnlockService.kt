@@ -226,6 +226,14 @@ abstract class ClientUnlockService(
                     unlockRequestHandler.get().onNewRequest(clientId, deferredRequest)
                 }
             }
+            if (clientUnlockServiceParams.isSendWOLRequest) {
+                try {
+                    delay(NOTIFICATION_DISMISS_DELAY)
+                } catch (_: Exception) {}
+                val nm = applicationContext.getSystemService<NotificationManager>() ?: getSystemService<NotificationManager>()
+                nm?.cancel(notificationId)
+                cancelNotificationDismiss(notificationId)
+            }
         }
     }
 
@@ -263,18 +271,25 @@ abstract class ClientUnlockService(
             retryIntervalMillis = retryIntervalMillis,
             matchingClientId = matchingBtDevice?.clientId
         ) {
-            coroutineScope {
-                val resultDeferred = CompletableDeferred<Boolean>()
-                val wifiJob = launch {
-                    val ok = tryWifiDeviceUnlock(
-                        wifiDevice = wifiDevice,
-                        macAddress = macAddress,
-                        clientUnlockServiceParams = clientUnlockServiceParams
-                    )
-                    if (ok) resultDeferred.complete(true)
-                }
-                val btJob = if (matchingBtDevice != null && clientUnlockServiceParams.isSendUnlockRequest) {
-                    launch {
+            if (matchingBtDevice == null || !clientUnlockServiceParams.isSendUnlockRequest) {
+                tryWifiDeviceUnlock(
+                    wifiDevice = wifiDevice,
+                    macAddress = macAddress,
+                    clientUnlockServiceParams = clientUnlockServiceParams
+                )
+            } else {
+                val attemptScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+                try {
+                    val resultDeferred = CompletableDeferred<Boolean>()
+                    val wifiJob = attemptScope.launch {
+                        val ok = tryWifiDeviceUnlock(
+                            wifiDevice = wifiDevice,
+                            macAddress = macAddress,
+                            clientUnlockServiceParams = clientUnlockServiceParams
+                        )
+                        if (ok) resultDeferred.complete(true)
+                    }
+                    val btJob = attemptScope.launch {
                         val ok = tryBluetoothDeviceUnlock(
                             bluetoothDevice = matchingBtDevice,
                             clientUnlockServiceParams = clientUnlockServiceParams,
@@ -282,19 +297,15 @@ abstract class ClientUnlockService(
                         )
                         if (ok) resultDeferred.complete(true)
                     }
-                } else null
-
-                val allDoneJob = launch {
-                    wifiJob.join()
-                    btJob?.join()
-                    resultDeferred.complete(false)
+                    val allDoneJob = attemptScope.launch {
+                        wifiJob.join()
+                        btJob.join()
+                        resultDeferred.complete(false)
+                    }
+                    resultDeferred.await()
+                } finally {
+                    attemptScope.cancel()
                 }
-
-                val attemptSuccess = resultDeferred.await()
-                allDoneJob.cancel()
-                wifiJob.cancel()
-                btJob?.cancel()
-                attemptSuccess
             }
         }
     }
@@ -387,19 +398,18 @@ abstract class ClientUnlockService(
                     val attemptTimeout = currentIntervalMillis.coerceIn(1500L, 10_000L)
 
                     val isUnlockSuccessful = try {
-                        coroutineScope {
-                            val attemptJob = async(Dispatchers.IO) {
-                                unlockBlock()
+                        val attemptScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+                        val attemptJob = attemptScope.async {
+                            unlockBlock()
+                        }
+                        currentAttemptJob = attemptJob
+                        try {
+                            withTimeout(attemptTimeout) {
+                                attemptJob.await()
                             }
-                            currentAttemptJob = attemptJob
-                            try {
-                                withTimeout(attemptTimeout) {
-                                    attemptJob.await()
-                                }
-                            } finally {
-                                currentAttemptJob = null
-                                attemptJob.cancel()
-                            }
+                        } finally {
+                            currentAttemptJob = null
+                            attemptScope.cancel()
                         }
                     } catch (e: TimeoutCancellationException) {
                         fastDebugLog("Attempt ${currentAttemptCount.get()} timed out after ${attemptTimeout}ms")

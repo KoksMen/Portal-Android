@@ -54,17 +54,20 @@ class BluetoothPortalApiImpl @Inject constructor(
     ): Boolean = withContext(Dispatchers.IO) {
         withTimeout(timeoutMs) {
             val bluetoothConnection = bluetoothManager.openConnection(bluetoothDevice.macAddress)
-            val jsonString = json.encodeToString(BluetoothUnlockRequest(bluetoothDevice.clientId))
-            bluetoothConnection.sendData(jsonString.toByteArray())
-            val isSuccessful = bluetoothConnection.incomingData.mapNotNull { data ->
-                try {
-                    json.decodeFromString<BluetoothUnlockResponse>(data.toString(Charsets.UTF_8))
-                } catch (e: Exception) {
-                    fastDebugLog(e)
-                    null
-                }
-            }.first().isSuccessful
-            isSuccessful.also { bluetoothConnection.release() }
+            try {
+                val jsonString = json.encodeToString(BluetoothUnlockRequest(bluetoothDevice.clientId))
+                bluetoothConnection.sendData(jsonString.toByteArray())
+                bluetoothConnection.incomingData.mapNotNull { data ->
+                    try {
+                        json.decodeFromString<BluetoothUnlockResponse>(data.toString(Charsets.UTF_8))
+                    } catch (e: Exception) {
+                        fastDebugLog(e)
+                        null
+                    }
+                }.first().isSuccessful
+            } finally {
+                bluetoothConnection.release()
+            }
         }
     }
 
