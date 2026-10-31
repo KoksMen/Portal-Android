@@ -162,11 +162,18 @@ abstract class ClientUnlockService(
                     val matchingBt = if (!linkedBtId.isNullOrEmpty()) {
                         bluetoothDeviceRepository.getDeviceById(linkedBtId).first()
                     } else {
-                        bluetoothDeviceRepository.devices.first().firstOrNull {
-                            it.name.equals(wifiDevice.deviceName, ignoreCase = true)
-                        } ?: if (bluetoothDeviceRepository.devices.first().size == 1) {
-                            bluetoothDeviceRepository.devices.first().first()
-                        } else null
+                        val allBt = bluetoothDeviceRepository.devices.first()
+                        allBt.firstOrNull { it.name.equals(wifiDevice.deviceName, ignoreCase = true) }
+                            ?: allBt.firstOrNull {
+                                val n1 = it.name.replace("[\\s_-]".toRegex(), "")
+                                val n2 = wifiDevice.deviceName.replace("[\\s_-]".toRegex(), "")
+                                n1.equals(n2, ignoreCase = true)
+                            }
+                            ?: allBt.firstOrNull {
+                                it.name.contains(wifiDevice.deviceName, ignoreCase = true) ||
+                                wifiDevice.deviceName.contains(it.name, ignoreCase = true)
+                            }
+                            ?: if (allBt.size == 1) allBt.first() else null
                     }
 
                     if (matchingBt != null) {
@@ -250,7 +257,7 @@ abstract class ClientUnlockService(
             timeoutMillis = timeoutMillis,
             retryIntervalMillis = retryIntervalMillis,
             matchingClientId = matchingWifiClientId
-        ) { tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams, timeoutMs = minOf(retryIntervalMillis, 4000L)) }
+        ) { tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams, timeoutMs = 6000L) }
     }
 
     private suspend fun doUnlockWifiDevice(
@@ -293,7 +300,7 @@ abstract class ClientUnlockService(
                         val ok = tryBluetoothDeviceUnlock(
                             bluetoothDevice = matchingBtDevice,
                             clientUnlockServiceParams = clientUnlockServiceParams,
-                            timeoutMs = 2500L
+                            timeoutMs = 6000L
                         )
                         if (ok) resultDeferred.complete(true)
                     }
@@ -395,7 +402,7 @@ abstract class ClientUnlockService(
 
                     val currentIntervalSeconds = settingsRepository.portalSettings.first().type1RetryIntervalSeconds
                     val currentIntervalMillis = (currentIntervalSeconds * 1000L).coerceIn(1000L, 300_000L)
-                    val attemptTimeout = currentIntervalMillis.coerceIn(1500L, 10_000L)
+                    val attemptTimeout = maxOf(currentIntervalMillis, 7000L).coerceIn(7000L, 30_000L)
 
                     val isUnlockSuccessful = try {
                         val attemptScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -541,15 +548,18 @@ abstract class ClientUnlockService(
     ): Boolean {
         return try {
             if (clientUnlockServiceParams.isSendUnlockRequest) {
+                fastDebugLog("Attempting Bluetooth unlock for ${bluetoothDevice.name} (${bluetoothDevice.macAddress}), timeoutMs=$timeoutMs")
                 val res = deviceUnlockManager.unlockBluetoothDevice(bluetoothDevice, timeoutMs)
                 if (res.isFailure) {
-                    fastDebugLog("tryBluetoothDeviceUnlock failed: ${res.exceptionOrNull()?.message}")
+                    fastDebugLog("tryBluetoothDeviceUnlock failed for ${bluetoothDevice.name}: ${res.exceptionOrNull()?.message}")
+                } else {
+                    fastDebugLog("tryBluetoothDeviceUnlock SUCCEEDED for ${bluetoothDevice.name}")
                 }
                 return res.isSuccess
             }
             true
         } catch (e: Exception) {
-            fastDebugLog("Error during tryUnlock: ${e.message}")
+            fastDebugLog("Error during tryBluetoothDeviceUnlock: ${e.message}")
             false
         }
     }

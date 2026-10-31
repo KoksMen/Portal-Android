@@ -9,6 +9,6 @@ interface BluetoothPortalApi {
     suspend fun unlock(bluetoothDevice: BluetoothDevice, timeoutMs: Long = DEFAULT_TIMEOUT): Boolean
 
     companion object {
-        const val DEFAULT_TIMEOUT = 3000L
+        const val DEFAULT_TIMEOUT = 6000L
     }
 }

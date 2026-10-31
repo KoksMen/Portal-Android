@@ -1,13 +1,13 @@
 package com.xxmrk888ytxx.coreandroid
 
 fun fastDebugLog(m:String) {
-    AndroidLogger.debug(m)
+    AndroidLogger.info(m)
 }
 
 fun fastDebugLog(m:Any?) {
-    AndroidLogger.debug(m)
+    AndroidLogger.info(m)
 }
 
 fun fastDebugLog(m:Throwable) {
-    AndroidLogger.debug(m)
+    AndroidLogger.info(m)
 }

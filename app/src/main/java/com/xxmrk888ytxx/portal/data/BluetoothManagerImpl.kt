@@ -145,7 +145,7 @@ class BluetoothManagerImpl @Inject constructor(
 
     companion object {
         const val PORTAL_BLUETOOTH_SERVICE_UUID = "E0CBF06C-CD8B-4647-BB8A-263B43F0F974"
-        const val CONNECT_TIMEOUT_MS = 3500L
+        const val CONNECT_TIMEOUT_MS = 6000L
     }
 
 }

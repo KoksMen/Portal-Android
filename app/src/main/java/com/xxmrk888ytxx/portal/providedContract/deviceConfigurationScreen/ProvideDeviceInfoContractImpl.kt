@@ -68,6 +68,13 @@ class ProvideDeviceInfoContractImpl @Inject constructor(
                     } else {
                         val matchingByName = allBluetoothDevices.firstOrNull {
                             it.name.equals(currentWifiDevice.deviceName, ignoreCase = true)
+                        } ?: allBluetoothDevices.firstOrNull {
+                            val n1 = it.name.replace("[\\s_-]".toRegex(), "")
+                            val n2 = currentWifiDevice.deviceName.replace("[\\s_-]".toRegex(), "")
+                            n1.equals(n2, ignoreCase = true)
+                        } ?: allBluetoothDevices.firstOrNull {
+                            it.name.contains(currentWifiDevice.deviceName, ignoreCase = true) ||
+                            currentWifiDevice.deviceName.contains(it.name, ignoreCase = true)
                         } ?: if (allBluetoothDevices.size == 1) allBluetoothDevices.first() else null
                         if (matchingByName != null) "Автоматически (${matchingByName.name})"
                         else null
