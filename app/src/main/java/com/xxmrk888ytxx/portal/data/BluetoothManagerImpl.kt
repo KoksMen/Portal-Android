@@ -69,33 +69,55 @@ class BluetoothManagerImpl @Inject constructor(
     override suspend fun openConnection(macAddress: String): BluetoothConnection = withContext(Dispatchers.IO) {
         checkBluetoothStateAndPermission()
         openConnectionMutex.withLock {
-
-            val cashedConnection = getCashedConnection(macAddress)
-            if (cashedConnection != null) {
-                cashedConnection.acquire()
-                return@withContext cashedConnection
+            val cachedConnection = getCashedConnection(macAddress)
+            if (cachedConnection != null && !cachedConnection.isClosed.value) {
+                cachedConnection.acquire()
+                fastDebugLog("Reusing cached active Bluetooth connection for $macAddress")
+                return@withContext cachedConnection
+            } else if (cachedConnection != null) {
+                cashedConnectionMap.update { it.toMutableMap().apply { remove(macAddress) } }
             }
         }
+
+        val normalizedTargetMac = macAddress.replace(":", "")
         val androidBluetoothDevice =
-            bluetoothAdapter.bondedDevices.firstOrNull { it.address == macAddress }
+            bluetoothAdapter.bondedDevices.firstOrNull { it.address.equals(macAddress, ignoreCase = true) }
+                ?: bluetoothAdapter.bondedDevices.firstOrNull {
+                    it.address.replace(":", "").equals(normalizedTargetMac, ignoreCase = true)
+                }
                 ?: throw IllegalArgumentException("Device $macAddress not paired")
+
         val socket = androidBluetoothDevice.createRfcommSocketToServiceRecord(
             UUID.fromString(PORTAL_BLUETOOTH_SERVICE_UUID)
         )
         val watchdogJob = CoroutineScope(Dispatchers.IO).launch {
             delay(CONNECT_TIMEOUT_MS)
-            try { socket.close() } catch (_: Exception) {}
+            try {
+                fastDebugLog("Bluetooth connect watchdog triggered after ${CONNECT_TIMEOUT_MS}ms for $macAddress")
+                socket.close()
+            } catch (_: Exception) {}
+        }
+        var isConnected = false
+        val cancelHandler = coroutineContext[Job]?.invokeOnCompletion { cause ->
+            if (cause != null && !isConnected) {
+                try {
+                    fastDebugLog("Bluetooth connection cancelled during connect for $macAddress")
+                    socket.close()
+                } catch (_: Exception) {}
+            }
         }
         try {
-            coroutineContext[Job]?.invokeOnCompletion {
-                try { socket.close() } catch (_: Exception) {}
-            }
+            fastDebugLog("Connecting RFCOMM socket for ${androidBluetoothDevice.name} ($macAddress)...")
             socket.connect()
+            isConnected = true
+            cancelHandler?.dispose()
             watchdogJob.cancel()
+            fastDebugLog("RFCOMM socket connected successfully for ${androidBluetoothDevice.name} ($macAddress)")
+
             val connection = RfcommBluetoothConnection(socket)
             openConnectionMutex.withLock {
                 val existing = getCashedConnection(macAddress)
-                if (existing != null) {
+                if (existing != null && !existing.isClosed.value) {
                     existing.acquire()
                     connection.release()
                     return@withContext existing
@@ -104,8 +126,10 @@ class BluetoothManagerImpl @Inject constructor(
             }
             return@withContext connection
         } catch (e: Throwable) {
+            cancelHandler?.dispose()
             watchdogJob.cancel()
             try { socket.close() } catch (_: Exception) {}
+            fastDebugLog("Failed to connect RFCOMM socket for $macAddress: ${e.message}")
             throw e
         }
 
@@ -145,7 +169,7 @@ class BluetoothManagerImpl @Inject constructor(
 
     companion object {
         const val PORTAL_BLUETOOTH_SERVICE_UUID = "E0CBF06C-CD8B-4647-BB8A-263B43F0F974"
-        const val CONNECT_TIMEOUT_MS = 6000L
+        const val CONNECT_TIMEOUT_MS = 10000L
     }
 
 }

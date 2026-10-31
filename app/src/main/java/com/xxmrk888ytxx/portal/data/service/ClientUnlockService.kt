@@ -283,7 +283,7 @@ abstract class ClientUnlockService(
             timeoutMillis = timeoutMillis,
             retryIntervalMillis = retryIntervalMillis,
             matchingClientId = matchingWifiClientId
-        ) { tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams, timeoutMs = 6000L) }
+        ) { tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams, timeoutMs = BluetoothPortalApi.DEFAULT_TIMEOUT) }
     }
 
     private suspend fun doUnlockWifiDevice(
@@ -326,7 +326,7 @@ abstract class ClientUnlockService(
                         val ok = tryBluetoothDeviceUnlock(
                             bluetoothDevice = matchingBtDevice,
                             clientUnlockServiceParams = clientUnlockServiceParams,
-                            timeoutMs = 6000L
+                            timeoutMs = BluetoothPortalApi.DEFAULT_TIMEOUT
                         )
                         if (ok) resultDeferred.complete(true)
                     }
@@ -428,7 +428,7 @@ abstract class ClientUnlockService(
 
                     val currentIntervalSeconds = settingsRepository.portalSettings.first().type1RetryIntervalSeconds
                     val currentIntervalMillis = (currentIntervalSeconds * 1000L).coerceIn(1000L, 300_000L)
-                    val attemptTimeout = maxOf(currentIntervalMillis, 7000L).coerceIn(7000L, 30_000L)
+                    val attemptTimeout = maxOf(currentIntervalMillis, 8500L).coerceIn(8500L, 30_000L)
 
                     val isUnlockSuccessful = try {
                         val attemptScope = CoroutineScope(Dispatchers.IO + SupervisorJob())

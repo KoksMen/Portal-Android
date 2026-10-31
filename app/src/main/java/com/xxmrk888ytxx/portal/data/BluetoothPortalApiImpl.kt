@@ -56,15 +56,18 @@ class BluetoothPortalApiImpl @Inject constructor(
             val bluetoothConnection = bluetoothManager.openConnection(bluetoothDevice.macAddress)
             try {
                 val jsonString = json.encodeToString(BluetoothUnlockRequest(bluetoothDevice.clientId))
+                fastDebugLog("BluetoothPortalApi.unlock: Sending unlock request for ${bluetoothDevice.name} (${bluetoothDevice.clientId})")
                 bluetoothConnection.sendData(jsonString.toByteArray())
-                bluetoothConnection.incomingData.mapNotNull { data ->
+                val result = bluetoothConnection.incomingData.mapNotNull { data ->
                     try {
                         json.decodeFromString<BluetoothUnlockResponse>(data.toString(Charsets.UTF_8))
                     } catch (e: Exception) {
-                        fastDebugLog(e)
+                        fastDebugLog("Failed to decode BluetoothUnlockResponse: ${e.message}")
                         null
                     }
                 }.first().isSuccessful
+                fastDebugLog("BluetoothPortalApi.unlock: Received result=$result for ${bluetoothDevice.name}")
+                result
             } finally {
                 bluetoothConnection.release()
             }
