@@ -239,7 +239,7 @@ abstract class ClientUnlockService(
                 if (!unlockSucceeded && !isCancelledByUser) {
                     dispatchAllDeferredType2Requests()
                 }
-                if (clientUnlockServiceParams.isSendWOLRequest && !isCancelledByUser) {
+                if ((clientUnlockServiceParams.isSendWOLRequest || clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout) && !isCancelledByUser) {
                     try {
                         delay(NOTIFICATION_DISMISS_DELAY)
                     } catch (_: Exception) {}
@@ -372,38 +372,51 @@ abstract class ClientUnlockService(
             ?: com.xxmrk888ytxx.unlockservice.R.drawable.portal
         val iconBitmap = appIconManager?.getAppIconBitmap() ?: getActiveAppIconBitmap()
 
+        val isRetryEnabled = clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout || clientUnlockServiceParams.isSendWOLRequest
+
+        fun updateProgressNotification() {
+            if (!isActive || isCompleted) return
+            val elapsed = System.currentTimeMillis() - startTime
+            val remaining = (timeoutMillis - elapsed).coerceAtLeast(0L)
+            val remainingSec = (remaining / 1000) % 60
+            val remainingMin = (remaining / 1000) / 60
+            val remainingStr = String.format(Locale.getDefault(), "%d:%02d", remainingMin, remainingSec)
+            val statusText = if (isRetryEnabled) {
+                getString(R.string.wol_unlock_status_format, currentAttemptCount.get(), remainingStr)
+            } else {
+                getString(R.string.please_wait_a_moment)
+            }
+
+            val updatedNotification = buildWolNotification(
+                deviceName = resolvedDeviceName,
+                statusText = statusText,
+                isIndeterminate = true,
+                isOngoing = true,
+                timeoutAfterMillis = timeoutMillis,
+                cancelIntent = cancelIntent,
+                smallIconRes = smallIconRes,
+                iconBitmap = iconBitmap
+            )
+            notificationManager?.notify(notificationId, updatedNotification)
+        }
+
+        // Post initial progress notification immediately
+        updateProgressNotification()
+
         // Update countdown timer every second in notification
-        val tickerJob = if (clientUnlockServiceParams.isSendWOLRequest) {
+        val tickerJob = if (isRetryEnabled) {
             launch {
                 while (isActive && !isCompleted) {
-                    val elapsed = System.currentTimeMillis() - startTime
-                    val remaining = (timeoutMillis - elapsed).coerceAtLeast(0L)
-                    val remainingSec = (remaining / 1000) % 60
-                    val remainingMin = (remaining / 1000) / 60
-                    val remainingStr = String.format(Locale.getDefault(), "%d:%02d", remainingMin, remainingSec)
-                    val statusText = getString(R.string.wol_unlock_status_format, currentAttemptCount.get(), remainingStr)
-
-                    if (!isActive || isCompleted) break
-
-                    val updatedNotification = buildWolNotification(
-                        deviceName = resolvedDeviceName,
-                        statusText = statusText,
-                        isIndeterminate = true,
-                        isOngoing = true,
-                        timeoutAfterMillis = timeoutMillis,
-                        cancelIntent = cancelIntent,
-                        smallIconRes = smallIconRes,
-                        iconBitmap = iconBitmap
-                    )
-                    if (!isActive || isCompleted) break
-                    notificationManager?.notify(notificationId, updatedNotification)
                     delay(1000L)
+                    if (!isActive || isCompleted) break
+                    updateProgressNotification()
                 }
             }
         } else null
 
         val targetClientIds = setOfNotNull(clientUnlockServiceParams.clientId, matchingClientId)
         var currentAttemptJob: Job? = null
+        var delayJob: Job? = null
 
         val unlockEventListener = launch {
             activeUnlockTracker.unlockSuccessEvents.collect { successId ->
@@ -412,6 +425,7 @@ abstract class ClientUnlockService(
                     isSuccess = true
                     isCompleted = true
                     currentAttemptJob?.cancel()
+                    delayJob?.cancel()
                 }
             }
         }
@@ -423,12 +437,13 @@ abstract class ClientUnlockService(
                     val attemptStartTime = System.currentTimeMillis()
                     if (!isFirstAttempt) {
                         currentAttemptCount.incrementAndGet()
+                        updateProgressNotification()
                     }
                     isFirstAttempt = false
 
                     val currentIntervalSeconds = settingsRepository.portalSettings.first().type1RetryIntervalSeconds
                     val currentIntervalMillis = (currentIntervalSeconds * 1000L).coerceIn(1000L, 300_000L)
-                    val attemptTimeout = maxOf(currentIntervalMillis, 8500L).coerceIn(8500L, 30_000L)
+                    val attemptTimeout = maxOf(currentIntervalMillis, 3000L).coerceIn(3000L, 30_000L)
 
                     val isUnlockSuccessful = try {
                         val attemptScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -464,7 +479,17 @@ abstract class ClientUnlockService(
                         if (isActive && !isCompleted && clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout) {
                             val elapsedThisAttempt = System.currentTimeMillis() - attemptStartTime
                             val delayNeeded = (currentIntervalMillis - elapsedThisAttempt).coerceAtLeast(10L)
-                            delay(delayNeeded)
+                            val delayScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+                            val currentDelayJob = delayScope.launch {
+                                delay(delayNeeded)
+                            }
+                            delayJob = currentDelayJob
+                            try {
+                                currentDelayJob.join()
+                            } finally {
+                                delayJob = null
+                                delayScope.cancel()
+                            }
                         }
                     }
                     if (!clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout) break
@@ -473,6 +498,7 @@ abstract class ClientUnlockService(
         } finally {
             isCompleted = true
             unlockEventListener.cancel()
+            delayJob?.cancel()
             tickerJob?.cancelAndJoin()
         }
 

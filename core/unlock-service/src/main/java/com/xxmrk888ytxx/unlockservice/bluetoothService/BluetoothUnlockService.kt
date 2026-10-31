@@ -9,19 +9,25 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.getSystemService
+import com.xxmrk888ytxx.coreandroid.fastDebugLog
 import com.xxmrk888ytxx.unlockservice.R
 import com.xxmrk888ytxx.unlockservice.core.ClientEntry
 import com.xxmrk888ytxx.unlockservice.core.NetworkDriver
 import com.xxmrk888ytxx.unlockservice.core.NotificationInfo
 import com.xxmrk888ytxx.unlockservice.core.UnlockService
 import com.xxmrk888ytxx.unlockservice.exception.PermissionDeniedException
+import com.xxmrk888ytxx.unlockservice.exception.UnlockServiceException
 import com.xxmrk888ytxx.unlockservice.exception.UnsupportedUnlockType
 import com.xxmrk888ytxx.unlockservice.qualifier.BluetoothNetworkDriver
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.isActive
 import javax.inject.Inject
 
 class BluetoothUnlockService @Inject constructor(
@@ -56,6 +62,35 @@ class BluetoothUnlockService @Inject constructor(
             receivedRequestChannel = clientEntry.unlockRequests,
             clientId = clientId
         )
+    }
+
+    override suspend fun payload(clientId: String) {
+        var retryDelay = 3_000L
+        val maxDelay = 15_000L
+
+        while (currentCoroutineContext().isActive) {
+            try {
+                fastDebugLog("Service: $this, clientId: $clientId checkPermission")
+                checkPermission()
+                fastDebugLog("Service: $this, clientId: $clientId waitConnectionToNetwork")
+                waitConnectionToNetwork()
+                val entry = clientEntries.value[clientId] ?: return
+                fastDebugLog("Service: $this, clientId: $clientId connect")
+                connect(clientId, entry)
+                retryDelay = 3_000L
+            } catch (e: CancellationException) {
+                fastDebugLog("CancellationException in BluetoothUnlockService payload")
+                throw e
+            } catch (e: UnlockServiceException) {
+                fastDebugLog(e)
+                return
+            } catch (e: Exception) {
+                fastDebugLog("Exception in BluetoothUnlockService payload, clientId: $clientId: $e")
+                retryDelay = (retryDelay * 2).coerceAtMost(maxDelay)
+            }
+
+            delay(retryDelay)
+        }
     }
 
     fun Context.bluetoothStateFlow(): Flow<Int> = callbackFlow {
