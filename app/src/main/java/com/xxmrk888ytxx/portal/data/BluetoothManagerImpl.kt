@@ -68,71 +68,51 @@ class BluetoothManagerImpl @Inject constructor(
 
     override suspend fun openConnection(macAddress: String): BluetoothConnection = withContext(Dispatchers.IO) {
         checkBluetoothStateAndPermission()
+        val normalizedMac = macAddress.uppercase()
         openConnectionMutex.withLock {
-            val cachedConnection = getCashedConnection(macAddress)
+            val cachedConnection = getCashedConnection(normalizedMac)
             if (cachedConnection != null && !cachedConnection.isClosed.value) {
                 cachedConnection.acquire()
-                fastDebugLog("Reusing cached active Bluetooth connection for $macAddress")
+                fastDebugLog("Reusing cached active Bluetooth connection for $normalizedMac")
                 return@withContext cachedConnection
             } else if (cachedConnection != null) {
-                cashedConnectionMap.update { it.toMutableMap().apply { remove(macAddress) } }
+                cashedConnectionMap.update { it.toMutableMap().apply { remove(normalizedMac) } }
             }
-        }
 
-        val normalizedTargetMac = macAddress.replace(":", "")
-        val androidBluetoothDevice =
-            bluetoothAdapter.bondedDevices.firstOrNull { it.address.equals(macAddress, ignoreCase = true) }
-                ?: bluetoothAdapter.bondedDevices.firstOrNull {
-                    it.address.replace(":", "").equals(normalizedTargetMac, ignoreCase = true)
-                }
-                ?: throw IllegalArgumentException("Device $macAddress not paired")
+            val normalizedTargetMac = normalizedMac.replace(":", "")
+            val androidBluetoothDevice =
+                bluetoothAdapter.bondedDevices.firstOrNull { it.address.equals(normalizedMac, ignoreCase = true) }
+                    ?: bluetoothAdapter.bondedDevices.firstOrNull {
+                        it.address.replace(":", "").equals(normalizedTargetMac, ignoreCase = true)
+                    }
+                    ?: throw IllegalArgumentException("Device $macAddress not paired")
 
-        val socket = androidBluetoothDevice.createRfcommSocketToServiceRecord(
-            UUID.fromString(PORTAL_BLUETOOTH_SERVICE_UUID)
-        )
-        val watchdogJob = CoroutineScope(Dispatchers.IO).launch {
-            delay(CONNECT_TIMEOUT_MS)
-            try {
-                fastDebugLog("Bluetooth connect watchdog triggered after ${CONNECT_TIMEOUT_MS}ms for $macAddress")
-                socket.close()
-            } catch (_: Exception) {}
-        }
-        var isConnected = false
-        val cancelHandler = coroutineContext[Job]?.invokeOnCompletion { cause ->
-            if (cause != null && !isConnected) {
+            val socket = androidBluetoothDevice.createRfcommSocketToServiceRecord(
+                UUID.fromString(PORTAL_BLUETOOTH_SERVICE_UUID)
+            )
+            val watchdogJob = CoroutineScope(Dispatchers.IO).launch {
+                delay(CONNECT_TIMEOUT_MS)
                 try {
-                    fastDebugLog("Bluetooth connection cancelled during connect for $macAddress")
+                    fastDebugLog("Bluetooth connect watchdog triggered after ${CONNECT_TIMEOUT_MS}ms for $normalizedMac")
                     socket.close()
                 } catch (_: Exception) {}
             }
-        }
-        try {
-            fastDebugLog("Connecting RFCOMM socket for ${androidBluetoothDevice.name} ($macAddress)...")
-            socket.connect()
-            isConnected = true
-            cancelHandler?.dispose()
-            watchdogJob.cancel()
-            fastDebugLog("RFCOMM socket connected successfully for ${androidBluetoothDevice.name} ($macAddress)")
+            try {
+                fastDebugLog("Connecting RFCOMM socket for ${androidBluetoothDevice.name} ($normalizedMac)...")
+                socket.connect()
+                watchdogJob.cancel()
+                fastDebugLog("RFCOMM socket connected successfully for ${androidBluetoothDevice.name} ($normalizedMac)")
 
-            val connection = RfcommBluetoothConnection(socket)
-            openConnectionMutex.withLock {
-                val existing = getCashedConnection(macAddress)
-                if (existing != null && !existing.isClosed.value) {
-                    existing.acquire()
-                    connection.release()
-                    return@withContext existing
-                }
-                addCashedConnection(macAddress, connection)
+                val connection = RfcommBluetoothConnection(socket)
+                addCashedConnection(normalizedMac, connection)
+                return@withContext connection
+            } catch (e: Throwable) {
+                watchdogJob.cancel()
+                try { socket.close() } catch (_: Exception) {}
+                fastDebugLog("Failed to connect RFCOMM socket for $normalizedMac: ${e.message}")
+                throw e
             }
-            return@withContext connection
-        } catch (e: Throwable) {
-            cancelHandler?.dispose()
-            watchdogJob.cancel()
-            try { socket.close() } catch (_: Exception) {}
-            fastDebugLog("Failed to connect RFCOMM socket for $macAddress: ${e.message}")
-            throw e
         }
-
     }
     override suspend fun updatePairedDeviceMacAddresses() = withContext(Dispatchers.IO) {
         updatePairedDeviceMutex.withLock {
@@ -148,17 +128,22 @@ class BluetoothManagerImpl @Inject constructor(
     }
 
     private suspend fun getCashedConnection(macAddress: MacAddress): BluetoothConnection? {
-        return cashedConnectionMap.value[macAddress]
+        val normalized = macAddress.uppercase()
+        return cashedConnectionMap.value[normalized]
+            ?: cashedConnectionMap.value.entries.firstOrNull { it.key.equals(normalized, ignoreCase = true) }?.value
     }
 
     private suspend fun addCashedConnection(
         macAddress: MacAddress,
         connection: BluetoothConnection
     ) {
-        cashedConnectionMap.update { it.toMutableMap().apply { put(macAddress, connection)  } }
+        val normalized = macAddress.uppercase()
+        cashedConnectionMap.update { it.toMutableMap().apply { put(normalized, connection) } }
         observeCloseCashedConnectionScope.launch {
             connection.isClosed.first { isClosed -> isClosed }
-            openConnectionMutex.withLock { cashedConnectionMap.update { it.toMutableMap().apply { remove(macAddress) } } }
+            openConnectionMutex.withLock {
+                cashedConnectionMap.update { it.toMutableMap().apply { remove(normalized) } }
+            }
         }
     }
 

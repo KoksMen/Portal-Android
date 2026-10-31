@@ -11,6 +11,7 @@ import com.xxmrk888ytxx.portal.domain.model.BluetoothDevice
 import com.xxmrk888ytxx.portal.domain.model.BluetoothPairResult
 import com.xxmrk888ytxx.portal.domain.model.PairedBluetoothDevice
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.withContext
@@ -57,15 +58,18 @@ class BluetoothPortalApiImpl @Inject constructor(
             try {
                 val jsonString = json.encodeToString(BluetoothUnlockRequest(bluetoothDevice.clientId))
                 fastDebugLog("BluetoothPortalApi.unlock: Sending unlock request for ${bluetoothDevice.name} (${bluetoothDevice.clientId})")
+                val responseDeferred = async {
+                    bluetoothConnection.incomingData.mapNotNull { data ->
+                        try {
+                            json.decodeFromString<BluetoothUnlockResponse>(data.toString(Charsets.UTF_8))
+                        } catch (e: Exception) {
+                            fastDebugLog("Failed to decode BluetoothUnlockResponse: ${e.message}")
+                            null
+                        }
+                    }.first().isSuccessful
+                }
                 bluetoothConnection.sendData(jsonString.toByteArray())
-                val result = bluetoothConnection.incomingData.mapNotNull { data ->
-                    try {
-                        json.decodeFromString<BluetoothUnlockResponse>(data.toString(Charsets.UTF_8))
-                    } catch (e: Exception) {
-                        fastDebugLog("Failed to decode BluetoothUnlockResponse: ${e.message}")
-                        null
-                    }
-                }.first().isSuccessful
+                val result = responseDeferred.await()
                 fastDebugLog("BluetoothPortalApi.unlock: Received result=$result for ${bluetoothDevice.name}")
                 result
             } finally {
