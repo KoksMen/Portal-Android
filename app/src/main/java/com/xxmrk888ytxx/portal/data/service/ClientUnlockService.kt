@@ -21,7 +21,9 @@ import com.xxmrk888ytxx.portal.domain.BluetoothPortalApi
 import com.xxmrk888ytxx.portal.domain.DeviceSettingsRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import com.xxmrk888ytxx.portal.domain.BluetoothDeviceRepository
 import com.xxmrk888ytxx.portal.domain.DeviceUnlockManager
@@ -68,6 +70,7 @@ abstract class ClientUnlockService(
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var currentUnlockJob: Job? = null
     private var currentRunningClientId: String? = null
+    private var isCancelledByUser = false
 
     protected abstract val channelId: String
     protected abstract val notificationId: Int
@@ -79,9 +82,16 @@ abstract class ClientUnlockService(
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_CANCEL_UNLOCK) {
             fastDebugLog("Cancel action received in ClientUnlockService")
+            isCancelledByUser = true
             cancelNotificationDismiss(notificationId)
-            currentUnlockJob?.cancel()
+            val runningId = currentRunningClientId
             currentRunningClientId = null
+            currentUnlockJob?.cancel()
+            if (runningId != null) {
+                wakeLockManager.releaseWakeLock("ClientUnlockService:$runningId")
+            }
+            activeUnlockTracker.clearAllType1Unlocks()
+            dispatchAllDeferredType2Requests()
             stopForeground(STOP_FOREGROUND_REMOVE)
             val notificationManager = getSystemService<NotificationManager>()
             notificationManager?.cancel(notificationId)
@@ -124,6 +134,7 @@ abstract class ClientUnlockService(
 
     private suspend fun handleUnlock(clientUnlockServiceParams: ClientUnlockServiceParams) {
         val clientId = clientUnlockServiceParams.clientId
+        isCancelledByUser = false
         val portalSettings = settingsRepository.portalSettings.first()
         val timeoutMinutes = portalSettings.type1UnlockTimeoutMinutes
         val timeoutMillis = (timeoutMinutes * 60 * 1000L).coerceAtLeast(60_000L)
@@ -219,28 +230,43 @@ abstract class ClientUnlockService(
                 }
             }
         } finally {
-            mdnsJob.cancel()
-            matchingBtDeviceClientId?.let { activeUnlockTracker.unregisterType1Unlock(it, unlockSucceeded) }
-            matchingWifiDeviceClientId?.let { activeUnlockTracker.unregisterType1Unlock(it, unlockSucceeded) }
-            wakeLockManager.releaseWakeLock(wakeLockTag)
-            activeUnlockTracker.unregisterType1Unlock(clientId, unlockSucceeded)
-            if (!unlockSucceeded) {
-                val deferredRequest = activeUnlockTracker.pollDeferredType2Request(clientId)
-                    ?: matchingBtDeviceClientId?.let { activeUnlockTracker.pollDeferredType2Request(it) }
-                    ?: matchingWifiDeviceClientId?.let { activeUnlockTracker.pollDeferredType2Request(it) }
-                if (deferredRequest != null) {
-                    fastDebugLog("Dispatching deferred Type 2 request for $clientId after Type 1 unlock finished")
-                    unlockRequestHandler.get().onNewRequest(clientId, deferredRequest)
+            withContext(NonCancellable) {
+                mdnsJob.cancel()
+                matchingBtDeviceClientId?.let { activeUnlockTracker.unregisterType1Unlock(it, unlockSucceeded) }
+                matchingWifiDeviceClientId?.let { activeUnlockTracker.unregisterType1Unlock(it, unlockSucceeded) }
+                wakeLockManager.releaseWakeLock(wakeLockTag)
+                activeUnlockTracker.unregisterType1Unlock(clientId, unlockSucceeded)
+                if (!unlockSucceeded && !isCancelledByUser) {
+                    dispatchAllDeferredType2Requests()
+                }
+                if (clientUnlockServiceParams.isSendWOLRequest && !isCancelledByUser) {
+                    try {
+                        delay(NOTIFICATION_DISMISS_DELAY)
+                    } catch (_: Exception) {}
+                    val nm = applicationContext.getSystemService<NotificationManager>() ?: getSystemService<NotificationManager>()
+                    nm?.cancel(notificationId)
+                    cancelNotificationDismiss(notificationId)
                 }
             }
-            if (clientUnlockServiceParams.isSendWOLRequest) {
-                try {
-                    delay(NOTIFICATION_DISMISS_DELAY)
-                } catch (_: Exception) {}
-                val nm = applicationContext.getSystemService<NotificationManager>() ?: getSystemService<NotificationManager>()
-                nm?.cancel(notificationId)
-                cancelNotificationDismiss(notificationId)
+        }
+    }
+
+    private fun dispatchAllDeferredType2Requests() {
+        val deferredMap = activeUnlockTracker.pollAllDeferredType2Requests()
+        if (deferredMap.isNotEmpty()) {
+            fastDebugLog("Dispatching ${deferredMap.size} deferred Type 2 requests: ${deferredMap.keys}")
+            dispatchScope.launch {
+                deferredMap.forEach { (targetClientId, request) ->
+                    try {
+                        fastDebugLog("Dispatching deferred Type 2 request for $targetClientId: $request")
+                        unlockRequestHandler.get().onNewRequest(targetClientId, request)
+                    } catch (e: Exception) {
+                        fastDebugLog("Failed to dispatch deferred Type 2 request for $targetClientId: ${e.message}")
+                    }
+                }
             }
+        } else {
+            fastDebugLog("No deferred Type 2 requests to dispatch")
         }
     }
 
@@ -450,25 +476,27 @@ abstract class ClientUnlockService(
             tickerJob?.cancelAndJoin()
         }
 
-        val finalStatusText = if (isSuccess) getString(R.string.wol_unlock_success) else getString(R.string.wol_unlock_failed)
-        fastDebugLog("Unlock finished with isSuccess=$isSuccess for ${clientUnlockServiceParams.clientId}. Posting final notification.")
-        val finalNotification = buildWolNotification(
-            deviceName = resolvedDeviceName,
-            statusText = finalStatusText,
-            isIndeterminate = false,
-            isOngoing = false,
-            timeoutAfterMillis = NOTIFICATION_DISMISS_DELAY,
-            cancelIntent = cancelIntent,
-            smallIconRes = smallIconRes,
-            iconBitmap = iconBitmap
-        )
-        stopForeground(STOP_FOREGROUND_DETACH)
-        notificationManager?.notify(notificationId, finalNotification)
-        scheduleNotificationDismiss(
-            applicationContext.getSystemService<NotificationManager>() ?: notificationManager,
-            notificationId,
-            NOTIFICATION_DISMISS_DELAY
-        )
+        if (!isCancelledByUser) {
+            val finalStatusText = if (isSuccess) getString(R.string.wol_unlock_success) else getString(R.string.wol_unlock_failed)
+            fastDebugLog("Unlock finished with isSuccess=$isSuccess for ${clientUnlockServiceParams.clientId}. Posting final notification.")
+            val finalNotification = buildWolNotification(
+                deviceName = resolvedDeviceName,
+                statusText = finalStatusText,
+                isIndeterminate = false,
+                isOngoing = false,
+                timeoutAfterMillis = NOTIFICATION_DISMISS_DELAY,
+                cancelIntent = cancelIntent,
+                smallIconRes = smallIconRes,
+                iconBitmap = iconBitmap
+            )
+            stopForeground(STOP_FOREGROUND_DETACH)
+            notificationManager?.notify(notificationId, finalNotification)
+            scheduleNotificationDismiss(
+                applicationContext.getSystemService<NotificationManager>() ?: notificationManager,
+                notificationId,
+                NOTIFICATION_DISMISS_DELAY
+            )
+        }
 
         return@coroutineScope isSuccess
     }
@@ -582,6 +610,7 @@ abstract class ClientUnlockService(
         const val NOTIFICATION_DISMISS_DELAY = 30_000L
         const val WOL_UNLOCK_TIMEOUT_MILLS = 360_000L
 
+        private val dispatchScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         private val dismissScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
         private val pendingDismissJobs = ConcurrentHashMap<Int, Job>()
 

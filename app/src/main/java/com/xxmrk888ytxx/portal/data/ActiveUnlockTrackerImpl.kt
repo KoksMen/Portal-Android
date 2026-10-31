@@ -35,6 +35,11 @@ class ActiveUnlockTrackerImpl @Inject constructor() : ActiveUnlockTracker {
         }
     }
 
+    override fun clearAllType1Unlocks() {
+        fastDebugLog("ActiveUnlockTracker: Clearing all active Type 1 unlocks (${activeType1Unlocks.size} active)")
+        activeType1Unlocks.clear()
+    }
+
     override fun isType1UnlockActive(clientId: String): Boolean {
         return activeType1Unlocks.contains(clientId)
     }
@@ -50,5 +55,12 @@ class ActiveUnlockTrackerImpl @Inject constructor() : ActiveUnlockTracker {
 
     override fun pollDeferredType2Request(clientId: String): UnlockServiceRequest? {
         return deferredType2Requests.remove(clientId)
+    }
+
+    override fun pollAllDeferredType2Requests(): Map<String, UnlockServiceRequest> {
+        val copy = HashMap(deferredType2Requests)
+        deferredType2Requests.clear()
+        fastDebugLog("ActiveUnlockTracker: Polled all ${copy.size} deferred Type 2 requests")
+        return copy
     }
 }

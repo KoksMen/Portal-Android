@@ -144,7 +144,7 @@ class UnlockRequestManagerImpl @Inject constructor(
             }
             val pendingIntent = PendingIntent.getActivity(
                 context,
-                0,
+                abs(clientId.hashCode()),
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
