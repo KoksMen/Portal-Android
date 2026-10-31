@@ -40,4 +40,5 @@ sealed interface SettingsScreenEvent : UiEvent {
     data class OnType2ConflictSelected(val behavior: String) : SettingsScreenEvent
     data object OnType1RetryIntervalClicked : SettingsScreenEvent
     data class OnType1RetryIntervalSelected(val seconds: Int) : SettingsScreenEvent
+    data class OnMixedUnlockStateChanged(val isEnabled: Boolean) : SettingsScreenEvent
 }

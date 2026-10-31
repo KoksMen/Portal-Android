@@ -28,7 +28,9 @@ data class DeviceSettingsEntry(
     @ColumnInfo("searchIpDynamically") val searchIpDynamically: Boolean = false,
     @ColumnInfo("unlockMethod") val unlockMethod: UnlockMethod = UnlockMethod.NOTIFICATION,
     @ColumnInfo("unlockOnlyWhenScreenUnlocked") val unlockOnlyWhenScreenUnlocked: Boolean = false,
-    @ColumnInfo("forwardUnlockRequestsToWear") val forwardUnlockRequestsToWear: Boolean = false
+    @ColumnInfo("forwardUnlockRequestsToWear") val forwardUnlockRequestsToWear: Boolean = false,
+    @ColumnInfo("isMixedUnlockEnabled") val isMixedUnlockEnabled: Boolean = false,
+    @ColumnInfo("linkedBluetoothDeviceId") val linkedBluetoothDeviceId: String? = null
 ) {
     internal companion object {
         const val TABLE_NAME = "DeviceSettingsTable"

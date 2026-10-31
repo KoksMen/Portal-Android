@@ -12,6 +12,10 @@ sealed interface DeviceConfigurationUiEvent : UiEvent {
         DeviceConfigurationUiEvent
     data class OnDeviceNameChanged(val newName: String) : DeviceConfigurationUiEvent
     data class OnWakeOnLanMacAddressChanged(val newMac: String): DeviceConfigurationUiEvent
+    data class OnMixedUnlockChanged(val newValue: Boolean) : DeviceConfigurationUiEvent
+    data class OnLinkedBluetoothDeviceChanged(val newBtClientId: String?) : DeviceConfigurationUiEvent
+    data object ShowSelectLinkedBluetoothDialog : DeviceConfigurationUiEvent
+    data object HideBottomSheet : DeviceConfigurationUiEvent
     data object NavigateBack : DeviceConfigurationUiEvent
     data object RemoveDevice : DeviceConfigurationUiEvent
     data object ShowRemoveDialog : DeviceConfigurationUiEvent

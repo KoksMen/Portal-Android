@@ -49,7 +49,8 @@ class SettingsViewModel @Inject constructor(
         provideSettingsState.isWatchDogAlarmClockEnabled,
         provideSettingsState.type1UnlockTimeoutMinutes,
         provideSettingsState.type2IncomingConflictBehavior,
-        provideSettingsState.type1RetryIntervalSeconds
+        provideSettingsState.type1RetryIntervalSeconds,
+        provideSettingsState.isMixedUnlockEnabled
     ) { flowArray ->
         val isBiometricProtectionEnabled = flowArray[0] as Boolean
         val appVersion = flowArray[1] as String
@@ -70,6 +71,7 @@ class SettingsViewModel @Inject constructor(
         val type1UnlockTimeoutMinutes = flowArray[16] as Int
         val type2IncomingConflictBehavior = flowArray[17] as String
         val type1RetryIntervalSeconds = flowArray[18] as Int
+        val isMixedUnlockEnabled = flowArray[19] as Boolean
 
         ScreenState(
             bottomSheetState = bottomSheetState,
@@ -90,7 +92,8 @@ class SettingsViewModel @Inject constructor(
             isWatchDogAlarmClockEnabled = isWatchDogAlarmClockEnabled,
             type1UnlockTimeoutMinutes = type1UnlockTimeoutMinutes,
             type2IncomingConflictBehavior = type2IncomingConflictBehavior,
-            type1RetryIntervalSeconds = type1RetryIntervalSeconds
+            type1RetryIntervalSeconds = type1RetryIntervalSeconds,
+            isMixedUnlockEnabled = isMixedUnlockEnabled
         )
     }.stateWhileSubscribed()
 
@@ -153,6 +156,7 @@ class SettingsViewModel @Inject constructor(
             is SettingsScreenEvent.OnType2ConflictSelected -> changeType2Conflict(event.behavior)
             SettingsScreenEvent.OnType1RetryIntervalClicked -> showSelectType1RetryIntervalDialog()
             is SettingsScreenEvent.OnType1RetryIntervalSelected -> changeType1RetryInterval(event.seconds)
+            is SettingsScreenEvent.OnMixedUnlockStateChanged -> changeMixedUnlockState(event.isEnabled)
         }
     }
 
@@ -203,6 +207,10 @@ class SettingsViewModel @Inject constructor(
     private fun changeType1RetryInterval(seconds: Int) = viewModelScope.launch {
         changeSettingsContract.updateType1RetryIntervalSeconds(seconds)
         bottomSheetState.value = BottomSheetState.None
+    }
+
+    private fun changeMixedUnlockState(isEnabled: Boolean) = viewModelScope.launch {
+        changeSettingsContract.updateMixedUnlockState(isEnabled)
     }
 
     private fun changeThemeColor(newColor: Color?) = viewModelScope.launch {

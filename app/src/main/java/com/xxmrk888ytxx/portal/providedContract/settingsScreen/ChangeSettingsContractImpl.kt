@@ -94,4 +94,8 @@ class ChangeSettingsContractImpl @Inject constructor(
     override suspend fun updateType1RetryIntervalSeconds(seconds: Int) {
         settingsRepository.updateType1RetryIntervalSeconds(seconds)
     }
+
+    override suspend fun updateMixedUnlockState(isEnabled: Boolean) {
+        settingsRepository.updateMixedUnlockEnabled(isEnabled)
+    }
 }

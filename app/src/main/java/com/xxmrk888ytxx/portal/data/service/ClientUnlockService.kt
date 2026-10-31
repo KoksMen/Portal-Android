@@ -18,6 +18,8 @@ import com.xxmrk888ytxx.portal.data.service.model.ClientUnlockServiceParams
 import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
 import com.xxmrk888ytxx.portal.domain.AppIconManager
 import com.xxmrk888ytxx.portal.domain.BluetoothPortalApi
+import com.xxmrk888ytxx.portal.domain.DeviceSettingsRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
@@ -57,6 +59,7 @@ abstract class ClientUnlockService(
     private val activeUnlockTracker: ActiveUnlockTracker,
     private val wakeLockManager: WakeLockManager,
     private val settingsRepository: SettingsRepository,
+    private val deviceSettingsRepository: DeviceSettingsRepository,
     private val unlockRequestHandler: dagger.Lazy<UnlockRequestHandler>,
     protected val appIconManager: AppIconManager? = null,
     protected val mdnsManager: MdnsManager,
@@ -149,10 +152,30 @@ abstract class ClientUnlockService(
             val bluetoothDevice = bluetoothDeviceRepository.getDeviceById(clientId).first()
 
             if (wifiDevice != null) {
-                val matchingBt = bluetoothDeviceRepository.devices.first().firstOrNull { it.name == wifiDevice.deviceName }
-                if (matchingBt != null) {
-                    matchingBtDeviceClientId = matchingBt.clientId
-                    activeUnlockTracker.registerType1Unlock(matchingBt.clientId)
+                val wifiSettings = deviceSettingsRepository.getDeviceSettingsByDeviceId(clientId).first()
+                val isMixedGlobal = portalSettings.isMixedUnlockEnabled
+                val isMixedDevice = wifiSettings?.isMixedUnlockEnabled == true
+                val isMixedActive = isMixedGlobal && isMixedDevice && clientUnlockServiceParams.isSendWOLRequest
+
+                if (isMixedActive) {
+                    val linkedBtId = wifiSettings.linkedBluetoothDeviceId
+                    val matchingBt = if (!linkedBtId.isNullOrEmpty()) {
+                        bluetoothDeviceRepository.getDeviceById(linkedBtId).first()
+                    } else {
+                        bluetoothDeviceRepository.devices.first().firstOrNull {
+                            it.name.equals(wifiDevice.deviceName, ignoreCase = true)
+                        } ?: if (bluetoothDeviceRepository.devices.first().size == 1) {
+                            bluetoothDeviceRepository.devices.first().first()
+                        } else null
+                    }
+
+                    if (matchingBt != null) {
+                        fastDebugLog("Mixed unlock active: linked with BT device ${matchingBt.name} (${matchingBt.clientId})")
+                        matchingBtDeviceClientId = matchingBt.clientId
+                        activeUnlockTracker.registerType1Unlock(matchingBt.clientId)
+                    } else {
+                        fastDebugLog("Mixed unlock active, but no matching Bluetooth device found for ${wifiDevice.deviceName}")
+                    }
                 }
             } else if (bluetoothDevice != null) {
                 val matchingWifi = wifiDeviceRepository.devices.first().firstOrNull { it.deviceName == bluetoothDevice.name }
@@ -241,26 +264,37 @@ abstract class ClientUnlockService(
             matchingClientId = matchingBtDevice?.clientId
         ) {
             coroutineScope {
-                val wifiJob = async {
-                    tryWifiDeviceUnlock(
+                val resultDeferred = CompletableDeferred<Boolean>()
+                val wifiJob = launch {
+                    val ok = tryWifiDeviceUnlock(
                         wifiDevice = wifiDevice,
                         macAddress = macAddress,
                         clientUnlockServiceParams = clientUnlockServiceParams
                     )
+                    if (ok) resultDeferred.complete(true)
                 }
                 val btJob = if (matchingBtDevice != null && clientUnlockServiceParams.isSendUnlockRequest) {
-                    async {
-                        tryBluetoothDeviceUnlock(matchingBtDevice, clientUnlockServiceParams, timeoutMs = 2500L)
+                    launch {
+                        val ok = tryBluetoothDeviceUnlock(
+                            bluetoothDevice = matchingBtDevice,
+                            clientUnlockServiceParams = clientUnlockServiceParams,
+                            timeoutMs = 2500L
+                        )
+                        if (ok) resultDeferred.complete(true)
                     }
                 } else null
 
-                val wifiSuccess = wifiJob.await()
-                if (wifiSuccess) {
-                    btJob?.cancel()
-                    true
-                } else {
-                    btJob?.await() ?: false
+                val allDoneJob = launch {
+                    wifiJob.join()
+                    btJob?.join()
+                    resultDeferred.complete(false)
                 }
+
+                val attemptSuccess = resultDeferred.await()
+                allDoneJob.cancel()
+                wifiJob.cancel()
+                btJob?.cancel()
+                attemptSuccess
             }
         }
     }

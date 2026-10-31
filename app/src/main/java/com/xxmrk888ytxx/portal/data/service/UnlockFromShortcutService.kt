@@ -10,6 +10,7 @@ import com.xxmrk888ytxx.portal.R
 import com.xxmrk888ytxx.portal.domain.ActiveUnlockTracker
 import com.xxmrk888ytxx.portal.domain.AppIconManager
 import com.xxmrk888ytxx.portal.domain.BluetoothDeviceRepository
+import com.xxmrk888ytxx.portal.domain.DeviceSettingsRepository
 import com.xxmrk888ytxx.portal.domain.DeviceUnlockManager
 import com.xxmrk888ytxx.portal.domain.MdnsManager
 import com.xxmrk888ytxx.portal.domain.SettingsRepository
@@ -27,6 +28,7 @@ class UnlockFromShortcutService @Inject constructor(
     activeUnlockTracker: ActiveUnlockTracker,
     wakeLockManager: WakeLockManager,
     settingsRepository: SettingsRepository,
+    deviceSettingsRepository: DeviceSettingsRepository,
     unlockRequestHandler: dagger.Lazy<UnlockRequestHandler>,
     appIconManager: AppIconManager,
     mdnsManager: MdnsManager
@@ -38,6 +40,7 @@ class UnlockFromShortcutService @Inject constructor(
     activeUnlockTracker = activeUnlockTracker,
     wakeLockManager = wakeLockManager,
     settingsRepository = settingsRepository,
+    deviceSettingsRepository = deviceSettingsRepository,
     unlockRequestHandler = unlockRequestHandler,
     appIconManager = appIconManager,
     mdnsManager = mdnsManager

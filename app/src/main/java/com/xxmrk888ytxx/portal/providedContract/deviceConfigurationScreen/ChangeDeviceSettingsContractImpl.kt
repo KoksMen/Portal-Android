@@ -85,4 +85,12 @@ class ChangeDeviceSettingsContractImpl @Inject constructor(
         wifiDeviceRepository.updateDeviceName(clientId, newName)
         bluetoothDeviceRepository.updateDeviceName(clientId, newName)
     }
+
+    override suspend fun updateMixedUnlockState(clientId: String, newValue: Boolean) {
+        deviceSettingsRepository.updateMixedUnlockState(clientId, newValue)
+    }
+
+    override suspend fun updateLinkedBluetoothDeviceId(clientId: String, newBtId: String?) {
+        deviceSettingsRepository.updateLinkedBluetoothDeviceId(clientId, newBtId)
+    }
 }

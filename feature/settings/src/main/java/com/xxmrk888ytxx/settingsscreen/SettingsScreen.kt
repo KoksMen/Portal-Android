@@ -338,6 +338,16 @@ fun SettingsScreen(
                         onEvent(SettingsScreenEvent.OnType2ConflictClicked)
                     }
                 )
+
+                SettingsSwitchItem(
+                    title = stringResource(R.string.mixed_unlock_global_title),
+                    subtitle = stringResource(R.string.mixed_unlock_global_desc),
+                    iconRes = R.drawable.shuffle,
+                    checked = screenState.isMixedUnlockEnabled,
+                    onCheckedChange = { isChecked ->
+                        onEvent(SettingsScreenEvent.OnMixedUnlockStateChanged(isChecked))
+                    }
+                )
             }
             Spacer(modifier = Modifier.height(24.dp))
 

@@ -6,5 +6,7 @@ data class DeviceSettings(
     val searchIpDynamically: Boolean,
     val unlockMethod: UnlockMethod,
     val showUnlockScreenOrUnlockOnlyWhenScreenUnlocked: Boolean,
-    val forwardUnlockRequestsToWear: Boolean
+    val forwardUnlockRequestsToWear: Boolean,
+    val isMixedUnlockEnabled: Boolean = false,
+    val linkedBluetoothDeviceId: String? = null
 )

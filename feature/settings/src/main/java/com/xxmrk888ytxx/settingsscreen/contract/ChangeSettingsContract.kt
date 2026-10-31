@@ -21,4 +21,5 @@ interface ChangeSettingsContract {
     suspend fun updateType1UnlockTimeoutMinutes(minutes: Int)
     suspend fun updateType2IncomingConflictBehavior(behavior: String)
     suspend fun updateType1RetryIntervalSeconds(seconds: Int)
+    suspend fun updateMixedUnlockState(isEnabled: Boolean)
 }

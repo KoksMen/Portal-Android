@@ -7,10 +7,12 @@ import kotlinx.coroutines.flow.Flow
 interface DeviceSettingsRepository {
     val deviceSettings: Flow<List<DeviceSettings>>
     suspend fun getDeviceSettingsByDeviceId(deviceId: String): Flow<DeviceSettings?>
-    suspend fun updateAwaitUnlockRequests(deviceId: String,newValue: Boolean)
-    suspend fun updateSearchIpDynamically(deviceId: String,newValue: Boolean)
+    suspend fun updateAwaitUnlockRequests(deviceId: String, newValue: Boolean)
+    suspend fun updateSearchIpDynamically(deviceId: String, newValue: Boolean)
     suspend fun updateUnlockMethod(deviceId: String, newMethod: UnlockMethod)
     suspend fun updateUnlockOnlyWhenScreenUnlockedState(deviceId: String, newValue: Boolean)
     suspend fun updateForwardUnlockRequestsToWearState(deviceId: String, newValue: Boolean)
+    suspend fun updateMixedUnlockState(deviceId: String, newValue: Boolean)
+    suspend fun updateLinkedBluetoothDeviceId(deviceId: String, newBtId: String?)
     suspend fun getAllDevicesWithNotSecureUnlockMethod(): List<DeviceSettings>
 }

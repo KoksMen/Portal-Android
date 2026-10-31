@@ -25,6 +25,7 @@ interface SettingsRepository {
     suspend fun updateType1UnlockTimeoutMinutes(minutes: Int)
     suspend fun updateType2IncomingConflictBehavior(behavior: String)
     suspend fun updateType1RetryIntervalSeconds(seconds: Int)
+    suspend fun updateMixedUnlockEnabled(isEnabled: Boolean)
 
     companion object {
         const val DEFAULT_VALUE = 0

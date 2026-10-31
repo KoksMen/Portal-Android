@@ -68,6 +68,20 @@ class DeviceSettingsRepositoryImpl @Inject constructor(
         deviceSettingsDao.updateForwardUnlockRequestsToWearState(deviceId, newValue)
     }
 
+    override suspend fun updateMixedUnlockState(
+        deviceId: String,
+        newValue: Boolean
+    ) = withContext(Dispatchers.IO) {
+        deviceSettingsDao.updateMixedUnlockState(deviceId, newValue)
+    }
+
+    override suspend fun updateLinkedBluetoothDeviceId(
+        deviceId: String,
+        newBtId: String?
+    ) = withContext(Dispatchers.IO) {
+        deviceSettingsDao.updateLinkedBluetoothDeviceId(deviceId, newBtId)
+    }
+
     override suspend fun getAllDevicesWithNotSecureUnlockMethod(): List<DeviceSettings> = withContext(Dispatchers.IO) {
         deviceSettingsDao.getAllDevicesWithNotSecureUnlockMethod().map { it.toDomainModel() }.also {
             fastDebugLog("getAllDevicesWithNotSecureUnlockMethod $it")
@@ -81,7 +95,9 @@ class DeviceSettingsRepositoryImpl @Inject constructor(
             searchIpDynamically = searchIpDynamically,
             unlockMethod = unlockMethod.toDomainModel(),
             showUnlockScreenOrUnlockOnlyWhenScreenUnlocked = unlockOnlyWhenScreenUnlocked,
-            forwardUnlockRequestsToWear = forwardUnlockRequestsToWear
+            forwardUnlockRequestsToWear = forwardUnlockRequestsToWear,
+            isMixedUnlockEnabled = isMixedUnlockEnabled,
+            linkedBluetoothDeviceId = linkedBluetoothDeviceId
         )
     }
 
@@ -92,8 +108,8 @@ class DeviceSettingsRepositoryImpl @Inject constructor(
     }
 
     private fun UnlockMethod.toDatabaseModel(): DatabaseUnlockMethod = when (this) {
-        is UnlockMethod.Automatic -> DatabaseUnlockMethod.AUTOMATIC
-        UnlockMethod.Notification -> DatabaseUnlockMethod.NOTIFICATION
+        UnlockMethod.Automatic -> DatabaseUnlockMethod.AUTOMATIC
         UnlockMethod.ConfirmationScreen -> DatabaseUnlockMethod.CONFIRMATION_SCREEN
+        UnlockMethod.Notification -> DatabaseUnlockMethod.NOTIFICATION
     }
 }

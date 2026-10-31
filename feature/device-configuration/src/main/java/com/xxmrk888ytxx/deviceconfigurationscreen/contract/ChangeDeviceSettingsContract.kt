@@ -10,4 +10,6 @@ interface ChangeDeviceSettingsContract {
     suspend fun updateForwardUnlockRequestsToWearState(clientId: String, newValue: Boolean)
     suspend fun updateHost(newHost: String, clientId: String)
     suspend fun updateDeviceName(newName: String, clientId: String)
+    suspend fun updateMixedUnlockState(clientId: String, newValue: Boolean)
+    suspend fun updateLinkedBluetoothDeviceId(clientId: String, newBtId: String?)
 }

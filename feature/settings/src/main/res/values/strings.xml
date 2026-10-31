@@ -138,4 +138,6 @@
     <string name="custom_interval">Custom interval</string>
     <string name="enter_seconds">Seconds (1–300)</string>
     <string name="apply">Apply</string>
+    <string name="mixed_unlock_global_title">Mixed Unlock</string>
+    <string name="mixed_unlock_global_desc">Enable simultaneous unlock attempt via Bluetooth when sending WOL request (Wi-Fi)</string>
 </resources>

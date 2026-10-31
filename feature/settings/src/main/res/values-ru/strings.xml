@@ -134,4 +134,6 @@
     <string name="custom_interval">Свой интервал</string>
     <string name="enter_seconds">Секунды (1–300)</string>
     <string name="apply">Применить</string>
+    <string name="mixed_unlock_global_title">Смешанная разблокировка</string>
+    <string name="mixed_unlock_global_desc">Разрешить одновременную попытку разблокировки через Bluetooth при WOL-запросе по Wi-Fi</string>
 </resources>

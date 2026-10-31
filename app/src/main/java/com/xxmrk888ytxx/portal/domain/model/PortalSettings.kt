@@ -21,5 +21,6 @@ data class PortalSettings(
     val isWatchDogAlarmClockEnabled: Boolean = true,
     val type1UnlockTimeoutMinutes: Int = 6,
     val type2IncomingConflictBehavior: String = "defer",
-    val type1RetryIntervalSeconds: Int = 5
+    val type1RetryIntervalSeconds: Int = 5,
+    val isMixedUnlockEnabled: Boolean = false
 )

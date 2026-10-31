@@ -49,6 +49,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private val type1UnlockTimeoutMinutesKey = intPreferencesKey("type1_unlock_timeout_minutes")
     private val type2IncomingConflictBehaviorKey = stringPreferencesKey("type2_incoming_conflict_behavior")
     private val type1RetryIntervalSecondsKey = intPreferencesKey("type1_retry_interval_seconds")
+    private val isMixedUnlockEnabledKey = booleanPreferencesKey("is_mixed_unlock_enabled")
 
 
     override val portalSettings: Flow<PortalSettings> = combine<Any?, PortalSettings>(
@@ -70,7 +71,8 @@ class SettingsRepositoryImpl @Inject constructor(
         preferencesStorage.getProperty(watchDogAlarmClockEnabledKey, true),
         preferencesStorage.getProperty(type1UnlockTimeoutMinutesKey, 6),
         preferencesStorage.getProperty(type2IncomingConflictBehaviorKey, "defer"),
-        preferencesStorage.getProperty(type1RetryIntervalSecondsKey, 5)
+        preferencesStorage.getProperty(type1RetryIntervalSecondsKey, 5),
+        preferencesStorage.getProperty(isMixedUnlockEnabledKey, false)
     ) { flowArray ->
         val biometricAuthEnabled = flowArray[0] as Boolean
         val additionalPasswordAuthEnabled = flowArray[1] as Boolean
@@ -91,6 +93,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val type1UnlockTimeoutMinutes = flowArray[16] as Int
         val type2IncomingConflictBehavior = flowArray[17] as String
         val type1RetryIntervalSeconds = flowArray[18] as Int
+        val isMixedUnlockEnabled = flowArray[19] as Boolean
 
         PortalSettings(
             isBiometricAuthEnabled = biometricAuthEnabled,
@@ -111,7 +114,8 @@ class SettingsRepositoryImpl @Inject constructor(
             isWatchDogAlarmClockEnabled = isWatchDogAlarmClockEnabled,
             type1UnlockTimeoutMinutes = type1UnlockTimeoutMinutes,
             type2IncomingConflictBehavior = type2IncomingConflictBehavior,
-            type1RetryIntervalSeconds = type1RetryIntervalSeconds
+            type1RetryIntervalSeconds = type1RetryIntervalSeconds,
+            isMixedUnlockEnabled = isMixedUnlockEnabled
         )
     }
 
@@ -225,5 +229,9 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateType1RetryIntervalSeconds(seconds: Int) = withContext(Dispatchers.IO) {
         preferencesStorage.writeProperty(type1RetryIntervalSecondsKey, seconds)
+    }
+
+    override suspend fun updateMixedUnlockEnabled(isEnabled: Boolean) = withContext(Dispatchers.IO) {
+        preferencesStorage.writeProperty(isMixedUnlockEnabledKey, isEnabled)
     }
 }

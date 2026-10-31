@@ -30,6 +30,12 @@ interface DeviceSettingsDao {
     @Query("UPDATE ${DeviceSettingsEntry.TABLE_NAME} SET forwardUnlockRequestsToWear = :newValue WHERE clientId = :deviceId")
     suspend fun updateForwardUnlockRequestsToWearState(deviceId: String, newValue: Boolean)
 
+    @Query("UPDATE ${DeviceSettingsEntry.TABLE_NAME} SET isMixedUnlockEnabled = :newValue WHERE clientId = :deviceId")
+    suspend fun updateMixedUnlockState(deviceId: String, newValue: Boolean)
+
+    @Query("UPDATE ${DeviceSettingsEntry.TABLE_NAME} SET linkedBluetoothDeviceId = :newBtId WHERE clientId = :deviceId")
+    suspend fun updateLinkedBluetoothDeviceId(deviceId: String, newBtId: String?)
+
     @Query("SELECT * FROM ${DeviceSettingsEntry.TABLE_NAME} WHERE unlockMethod == $AUTOMATIC_METHOD_ID")
     suspend fun getAllDevicesWithNotSecureUnlockMethod(): List<DeviceSettingsEntry>
 }

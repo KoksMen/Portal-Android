@@ -12,6 +12,7 @@ import com.xxmrk888ytxx.deviceconfigurationscreen.contract.ProvideDeviceInfoCont
 import com.xxmrk888ytxx.deviceconfigurationscreen.contract.RemoveDeviceContract
 import com.xxmrk888ytxx.deviceconfigurationscreen.contract.UnsafeMethodAvailableStateProvider
 import com.xxmrk888ytxx.deviceconfigurationscreen.model.BottomSheetDialogState
+import com.xxmrk888ytxx.deviceconfigurationscreen.model.Device
 import com.xxmrk888ytxx.deviceconfigurationscreen.model.DeviceConfigurationScreenSideEffect
 import com.xxmrk888ytxx.deviceconfigurationscreen.model.DeviceConfigurationUiEvent
 import com.xxmrk888ytxx.deviceconfigurationscreen.model.ScreenState
@@ -108,6 +109,10 @@ class DeviceConfigurationViewModel @AssistedInject internal constructor(
             )
 
             is DeviceConfigurationUiEvent.OnWakeOnLanMacAddressChanged -> updateWOLMacAddress(event.newMac)
+            is DeviceConfigurationUiEvent.OnMixedUnlockChanged -> changeMixedUnlockState(event.newValue)
+            is DeviceConfigurationUiEvent.OnLinkedBluetoothDeviceChanged -> changeLinkedBluetoothDevice(event.newBtClientId)
+            DeviceConfigurationUiEvent.ShowSelectLinkedBluetoothDialog -> showSelectLinkedBluetoothDialog()
+            DeviceConfigurationUiEvent.HideBottomSheet -> hideDeletionDialog()
         }
     }
 
@@ -142,6 +147,29 @@ class DeviceConfigurationViewModel @AssistedInject internal constructor(
 
     private fun changeAwaitUnlockRequestsState(newValue: Boolean) = withLoading {
         changeDeviceSettingsContract.updateAwaitUnlockRequestsState(clientId, newValue)
+    }
+
+    private fun changeMixedUnlockState(newValue: Boolean) = withLoading {
+        changeDeviceSettingsContract.updateMixedUnlockState(clientId, newValue)
+    }
+
+    private fun changeLinkedBluetoothDevice(newBtClientId: String?) = withLoading {
+        changeDeviceSettingsContract.updateLinkedBluetoothDeviceId(clientId, newBtClientId)
+        hideDeletionDialog()
+    }
+
+    private fun showSelectLinkedBluetoothDialog() = viewModelScope.launch {
+        val wifiDevice = (_state.value as? ScreenState.DeviceInfo)?.device as? Device.WifiDevice ?: return@launch
+        updateStateMutex.withLock {
+            _state.update {
+                (it as? ScreenState.DeviceInfo)?.copy(
+                    bottomSheetDialogState = BottomSheetDialogState.SelectLinkedBluetoothDevice(
+                        currentSelectedId = wifiDevice.linkedBluetoothDeviceId,
+                        devices = wifiDevice.availableBluetoothDevices
+                    )
+                ) ?: it
+            }
+        }
     }
 
     private fun showDeletionDialog() = viewModelScope.launch {

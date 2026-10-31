@@ -1,5 +1,10 @@
 package com.xxmrk888ytxx.deviceconfigurationscreen.model
 
+data class BluetoothDeviceOption(
+    val clientId: String?,
+    val name: String,
+    val macAddress: String?
+)
 
 sealed class Device(
     open val clientId: String,
@@ -20,7 +25,12 @@ sealed class Device(
         override val unlockMethod: UnlockMethod,
         val wolMacAddress: String?,
         override val showUnlockScreenOrUnlockOnlyWhenScreenUnlocked: Boolean,
-        override val forwardUnlockRequestsToWear: Boolean
+        override val forwardUnlockRequestsToWear: Boolean,
+        val isMixedUnlockEnabled: Boolean = false,
+        val linkedBluetoothDeviceId: String? = null,
+        val linkedBluetoothDeviceName: String? = null,
+        val isMixedUnlockGloballyEnabled: Boolean = false,
+        val availableBluetoothDevices: List<BluetoothDeviceOption> = emptyList()
     ) : Device(
         clientId,
         deviceName,

@@ -22,4 +22,5 @@ interface ProvideSettingsState {
     val type1UnlockTimeoutMinutes: Flow<Int>
     val type2IncomingConflictBehavior: Flow<String>
     val type1RetryIntervalSeconds: Flow<Int>
+    val isMixedUnlockEnabled: Flow<Boolean>
 }

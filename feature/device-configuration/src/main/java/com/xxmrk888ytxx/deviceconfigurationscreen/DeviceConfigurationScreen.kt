@@ -8,6 +8,10 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import com.xxmrk888ytxx.deviceconfigurationscreen.model.BluetoothDeviceOption
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -250,6 +254,12 @@ fun DeviceInfoState(
             },
             onSearchIpDynamicallyChanged = {
                 onEvent(DeviceConfigurationUiEvent.OnSearchIpDynamicallyChanged(it))
+            },
+            onMixedUnlockChanged = {
+                onEvent(DeviceConfigurationUiEvent.OnMixedUnlockChanged(it))
+            },
+            onSelectLinkedBluetoothDevice = {
+                onEvent(DeviceConfigurationUiEvent.ShowSelectLinkedBluetoothDialog)
             }
         )
 
@@ -334,6 +344,21 @@ fun DeviceInfoState(
             },
             onConfirm = {
                 onEvent(DeviceConfigurationUiEvent.RemoveDevice)
+            }
+        )
+    }
+
+    // Select Linked Bluetooth Device Bottom Sheet
+    if (screenState.bottomSheetDialogState is BottomSheetDialogState.SelectLinkedBluetoothDevice) {
+        val state = screenState.bottomSheetDialogState
+        SelectLinkedBluetoothBottomSheet(
+            currentSelectedId = state.currentSelectedId,
+            devices = state.devices,
+            onDismiss = {
+                onEvent(DeviceConfigurationUiEvent.HideBottomSheet)
+            },
+            onDeviceSelected = { selectedId ->
+                onEvent(DeviceConfigurationUiEvent.OnLinkedBluetoothDeviceChanged(selectedId))
             }
         )
     }
@@ -932,7 +957,9 @@ private fun AuthorizationParametersCard(
     onUnlockOnlyWhenUnlockedChanged: (Boolean) -> Unit,
     onAwaitUnlockChanged: (Boolean) -> Unit,
     onForwardToWearChanged: (Boolean) -> Unit,
-    onSearchIpDynamicallyChanged: (Boolean) -> Unit
+    onSearchIpDynamicallyChanged: (Boolean) -> Unit,
+    onMixedUnlockChanged: (Boolean) -> Unit,
+    onSelectLinkedBluetoothDevice: () -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(24.dp),
@@ -1013,6 +1040,90 @@ private fun AuthorizationParametersCard(
                     isChecked = device.searchIpDynamically,
                     onCheckedChange = onSearchIpDynamicallyChanged
                 )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    thickness = 1.dp
+                )
+
+                // Toggle 5: Mixed Unlock
+                val mixedUnlockDesc = if (!device.isMixedUnlockGloballyEnabled) {
+                    stringResource(R.string.mixed_unlock_disabled_globally)
+                } else {
+                    stringResource(R.string.mixed_unlock_description)
+                }
+
+                SwitchItemRow(
+                    icon = R.drawable.bluetooth,
+                    title = stringResource(R.string.mixed_unlock),
+                    description = mixedUnlockDesc,
+                    isChecked = device.isMixedUnlockEnabled,
+                    onCheckedChange = onMixedUnlockChanged
+                )
+
+                AnimatedVisibility(visible = device.isMixedUnlockEnabled) {
+                    Column {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            thickness = 1.dp
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectLinkedBluetoothDevice() }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.hub),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.linked_bluetooth_device),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = device.linkedBluetoothDeviceName ?: stringResource(R.string.auto_by_name),
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                            IconButton(onClick = onSelectLinkedBluetoothDevice) {
+                                Icon(
+                                    painter = painterResource(R.drawable.edit),
+                                    contentDescription = stringResource(R.string.select_bluetooth_device),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1537,4 +1648,132 @@ fun String.isValidMacInput(): Boolean {
 
 fun String.isMacComplete(): Boolean {
     return this.replace(":", "").length == 12
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SelectLinkedBluetoothBottomSheet(
+    currentSelectedId: String?,
+    devices: List<BluetoothDeviceOption>,
+    onDismiss: () -> Unit,
+    onDeviceSelected: (String?) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.select_bluetooth_device),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = stringResource(R.string.select_bluetooth_device_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            if (devices.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.no_bluetooth_devices_paired),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 16.dp)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(devices) { option ->
+                        val isSelected = option.clientId == currentSelectedId
+                        Card(
+                            onClick = { onDeviceSelected(option.clientId) },
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(
+                                if (isSelected) 2.dp else 1.dp,
+                                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            ),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                                else MaterialTheme.colorScheme.surfaceContainer
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(
+                                                if (isSelected) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.surfaceContainerHigh
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(if (option.clientId == null) R.drawable.bolt else R.drawable.bluetooth),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Text(
+                                            text = if (option.clientId == null) stringResource(R.string.auto_by_name) else option.name,
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        if (option.macAddress != null) {
+                                            Text(
+                                                text = option.macAddress,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = null
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
