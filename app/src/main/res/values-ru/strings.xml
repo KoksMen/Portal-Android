@@ -27,15 +27,13 @@
     <string name="wi_fi" translatable="false">Wi-Fi</string>
     <string name="bluetooth" translatable="false">Bluetooth</string>
     <string name="wol_unlock_status_format">Попытка %1$d • %2$s</string>
-    <string name="wol_unlock_status_mixed_format">Попытка %1$d (Wi-Fi %2$d, BT %3$d) • %4$s</string>
     <string name="wol_unlock_mode_mixed">Wi-Fi + BT</string>
     <string name="wol_unlock_mode_wifi">Wi-Fi</string>
     <string name="wol_unlock_mode_bluetooth">Bluetooth</string>
     <string name="wol_unlock_success">Устройство успешно разблокировано</string>
     <string name="wol_unlock_success_via_wifi">Устройство успешно разблокировано через Wi-Fi</string>
     <string name="wol_unlock_success_via_bluetooth">Устройство успешно разблокировано через Bluetooth</string>
-    <string name="wol_unlock_big_text_mixed">Режим: %1$s\nПопытка: %2$d • Осталось: %5$s\nПопытки Wi-Fi: %3$d\nПопытки Bluetooth: %4$d</string>
     <string name="wol_unlock_big_text_single">Режим: %1$s\nПопытка: %2$d • Осталось: %3$s</string>
-    <string name="wol_unlock_success_mixed_summary">%1$s\nВсего попыток: %2$d (Wi-Fi: %3$d • Bluetooth: %4$d)</string>
+    <string name="wol_unlock_success_mixed_summary">%1$s\nВсего попыток: %2$d</string>
     <string name="wol_unlock_failed">Не удалось разблокировать устройство</string>
 </resources>

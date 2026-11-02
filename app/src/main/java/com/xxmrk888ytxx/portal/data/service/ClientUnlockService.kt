@@ -379,8 +379,6 @@ abstract class ClientUnlockService(
         var winningTransport = UnlockWinner.NONE
         val startTime = System.currentTimeMillis()
         val totalAttemptCount = AtomicInteger(1)
-        val wifiAttemptCount = AtomicInteger(if (transportMode == UnlockTransportMode.BLUETOOTH) 0 else 1)
-        val btAttemptCount = AtomicInteger(if (transportMode == UnlockTransportMode.WIFI) 0 else 1)
         val notificationManager = applicationContext.getSystemService<NotificationManager>()
             ?: getSystemService<NotificationManager>()
 
@@ -417,39 +415,18 @@ abstract class ClientUnlockService(
             val remainingMin = (remaining / 1000) / 60
             val remainingStr = String.format(Locale.getDefault(), "%d:%02d", remainingMin, remainingSec)
             val statusText = if (isRetryEnabled) {
-                if (transportMode == UnlockTransportMode.MIXED) {
-                    getString(
-                        R.string.wol_unlock_status_mixed_format,
-                        totalAttemptCount.get(),
-                        wifiAttemptCount.get(),
-                        btAttemptCount.get(),
-                        remainingStr
-                    )
-                } else {
-                    getString(R.string.wol_unlock_status_format, totalAttemptCount.get(), remainingStr)
-                }
+                getString(R.string.wol_unlock_status_format, totalAttemptCount.get(), remainingStr)
             } else {
                 getString(R.string.please_wait_a_moment)
             }
 
             val bigText = if (isRetryEnabled) {
-                if (transportMode == UnlockTransportMode.MIXED) {
-                    getString(
-                        R.string.wol_unlock_big_text_mixed,
-                        modeLabel,
-                        totalAttemptCount.get(),
-                        wifiAttemptCount.get(),
-                        btAttemptCount.get(),
-                        remainingStr
-                    )
-                } else {
-                    getString(
-                        R.string.wol_unlock_big_text_single,
-                        modeLabel,
-                        totalAttemptCount.get(),
-                        remainingStr
-                    )
-                }
+                getString(
+                    R.string.wol_unlock_big_text_single,
+                    modeLabel,
+                    totalAttemptCount.get(),
+                    remainingStr
+                )
             } else null
 
             val updatedNotification = buildWolNotification(
@@ -511,14 +488,6 @@ abstract class ClientUnlockService(
                     val attemptStartTime = System.currentTimeMillis()
                     if (!isFirstAttempt) {
                         totalAttemptCount.incrementAndGet()
-                        if (transportMode == UnlockTransportMode.MIXED) {
-                            wifiAttemptCount.incrementAndGet()
-                            btAttemptCount.incrementAndGet()
-                        } else if (transportMode == UnlockTransportMode.WIFI) {
-                            wifiAttemptCount.incrementAndGet()
-                        } else if (transportMode == UnlockTransportMode.BLUETOOTH) {
-                            btAttemptCount.incrementAndGet()
-                        }
                         updateProgressNotification()
                     }
                     isFirstAttempt = false
@@ -606,9 +575,7 @@ abstract class ClientUnlockService(
                 getString(
                     R.string.wol_unlock_success_mixed_summary,
                     finalStatusText,
-                    totalAttemptCount.get(),
-                    wifiAttemptCount.get(),
-                    btAttemptCount.get()
+                    totalAttemptCount.get()
                 )
             } else null
 
