@@ -195,6 +195,8 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
+            android:taskAffinity=""
+            android:windowSoftInputMode="stateAlwaysHidden"
             android:theme="@style/Theme.Portal.Transparent">
             <intent-filter>
                 <action android:name="com.xxmrk888ytxx.portal.UNLOCK_FROM_SHORTCUT_ACTION" />
