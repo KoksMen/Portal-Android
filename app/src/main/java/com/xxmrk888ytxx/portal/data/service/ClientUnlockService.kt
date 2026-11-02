@@ -53,6 +53,23 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
+enum class UnlockTransportMode {
+    WIFI,
+    BLUETOOTH,
+    MIXED
+}
+
+enum class UnlockWinner {
+    NONE,
+    WIFI,
+    BLUETOOTH
+}
+
+data class UnlockAttemptResult(
+    val isSuccess: Boolean,
+    val winner: UnlockWinner = UnlockWinner.NONE
+)
+
 abstract class ClientUnlockService(
     private val wolManager: WOLManager,
     private val deviceUnlockManager: DeviceUnlockManager,
@@ -208,12 +225,14 @@ abstract class ClientUnlockService(
                     val matchingBt = matchingBtDeviceClientId?.let { btId ->
                         bluetoothDeviceRepository.getDeviceById(btId).first()
                     }
+                    val isMixed = matchingBt != null && clientUnlockServiceParams.isSendWOLRequest
                     unlockSucceeded = doUnlockWifiDevice(
                         wifiDevice = wifiDevice,
                         clientUnlockServiceParams = clientUnlockServiceParams,
                         timeoutMillis = timeoutMillis,
                         retryIntervalMillis = retryIntervalMillis,
-                        matchingBtDevice = matchingBt
+                        matchingBtDevice = matchingBt,
+                        transportMode = if (isMixed) UnlockTransportMode.MIXED else UnlockTransportMode.WIFI
                     )
                 }
                 bluetoothDevice != null -> {
@@ -280,10 +299,14 @@ abstract class ClientUnlockService(
         return doUnlock(
             clientUnlockServiceParams = clientUnlockServiceParams,
             deviceName = bluetoothDevice.name,
+            transportMode = UnlockTransportMode.BLUETOOTH,
             timeoutMillis = timeoutMillis,
             retryIntervalMillis = retryIntervalMillis,
             matchingClientId = matchingWifiClientId
-        ) { tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams, timeoutMs = BluetoothPortalApi.DEFAULT_TIMEOUT) }
+        ) {
+            val ok = tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams, timeoutMs = BluetoothPortalApi.DEFAULT_TIMEOUT)
+            UnlockAttemptResult(isSuccess = ok, winner = if (ok) UnlockWinner.BLUETOOTH else UnlockWinner.NONE)
+        }
     }
 
     private suspend fun doUnlockWifiDevice(
@@ -291,7 +314,8 @@ abstract class ClientUnlockService(
         clientUnlockServiceParams: ClientUnlockServiceParams,
         timeoutMillis: Long,
         retryIntervalMillis: Long,
-        matchingBtDevice: BluetoothDevice? = null
+        matchingBtDevice: BluetoothDevice? = null,
+        transportMode: UnlockTransportMode = if (matchingBtDevice != null && clientUnlockServiceParams.isSendWOLRequest) UnlockTransportMode.MIXED else UnlockTransportMode.WIFI
     ): Boolean {
         val macAddress = wifiDevice.wolMacAddress
         if (macAddress == null) {
@@ -300,27 +324,31 @@ abstract class ClientUnlockService(
         return doUnlock(
             clientUnlockServiceParams = clientUnlockServiceParams,
             deviceName = wifiDevice.deviceName,
+            transportMode = transportMode,
             timeoutMillis = timeoutMillis,
             retryIntervalMillis = retryIntervalMillis,
             matchingClientId = matchingBtDevice?.clientId
         ) {
-            if (matchingBtDevice == null || !clientUnlockServiceParams.isSendUnlockRequest) {
-                tryWifiDeviceUnlock(
+            if (matchingBtDevice == null || !clientUnlockServiceParams.isSendUnlockRequest || transportMode != UnlockTransportMode.MIXED) {
+                val ok = tryWifiDeviceUnlock(
                     wifiDevice = wifiDevice,
                     macAddress = macAddress,
                     clientUnlockServiceParams = clientUnlockServiceParams
                 )
+                UnlockAttemptResult(isSuccess = ok, winner = if (ok) UnlockWinner.WIFI else UnlockWinner.NONE)
             } else {
                 val attemptScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
                 try {
-                    val resultDeferred = CompletableDeferred<Boolean>()
+                    val resultDeferred = CompletableDeferred<UnlockAttemptResult>()
                     val wifiJob = attemptScope.launch {
                         val ok = tryWifiDeviceUnlock(
                             wifiDevice = wifiDevice,
                             macAddress = macAddress,
                             clientUnlockServiceParams = clientUnlockServiceParams
                         )
-                        if (ok) resultDeferred.complete(true)
+                        if (ok) {
+                            resultDeferred.complete(UnlockAttemptResult(isSuccess = true, winner = UnlockWinner.WIFI))
+                        }
                     }
                     val btJob = attemptScope.launch {
                         val ok = tryBluetoothDeviceUnlock(
@@ -328,12 +356,14 @@ abstract class ClientUnlockService(
                             clientUnlockServiceParams = clientUnlockServiceParams,
                             timeoutMs = BluetoothPortalApi.DEFAULT_TIMEOUT
                         )
-                        if (ok) resultDeferred.complete(true)
+                        if (ok) {
+                            resultDeferred.complete(UnlockAttemptResult(isSuccess = true, winner = UnlockWinner.BLUETOOTH))
+                        }
                     }
                     val allDoneJob = attemptScope.launch {
                         wifiJob.join()
                         btJob.join()
-                        resultDeferred.complete(false)
+                        resultDeferred.complete(UnlockAttemptResult(isSuccess = false, winner = UnlockWinner.NONE))
                     }
                     resultDeferred.await()
                 } finally {
@@ -346,15 +376,19 @@ abstract class ClientUnlockService(
     private suspend fun doUnlock(
         clientUnlockServiceParams: ClientUnlockServiceParams,
         deviceName: String,
+        transportMode: UnlockTransportMode,
         timeoutMillis: Long,
         retryIntervalMillis: Long = DEFAULT_ATTEMPT_INTERVAL,
         matchingClientId: String? = null,
-        unlockBlock: suspend () -> Boolean
+        unlockBlock: suspend () -> UnlockAttemptResult
     ): Boolean = coroutineScope {
         var isSuccess = false
         var isCompleted = false
+        var winningTransport = UnlockWinner.NONE
         val startTime = System.currentTimeMillis()
-        val currentAttemptCount = AtomicInteger(1)
+        val totalAttemptCount = AtomicInteger(1)
+        val wifiAttemptCount = AtomicInteger(if (transportMode == UnlockTransportMode.BLUETOOTH) 0 else 1)
+        val btAttemptCount = AtomicInteger(if (transportMode == UnlockTransportMode.WIFI) 0 else 1)
         val notificationManager = applicationContext.getSystemService<NotificationManager>()
             ?: getSystemService<NotificationManager>()
 
@@ -362,6 +396,15 @@ abstract class ClientUnlockService(
             if (clientUnlockServiceParams.isSendWOLRequest) getString(R.string.unlocking_the_device_wol)
             else getString(R.string.unlocking_the_device)
         }
+
+        val modeLabel = when (transportMode) {
+            UnlockTransportMode.MIXED -> getString(R.string.wol_unlock_mode_mixed)
+            UnlockTransportMode.WIFI -> getString(R.string.wol_unlock_mode_wifi)
+            UnlockTransportMode.BLUETOOTH -> getString(R.string.wol_unlock_mode_bluetooth)
+        }
+
+        val notificationTitle = "$resolvedDeviceName • $modeLabel"
+
         val cancelIntent = PendingIntent.getService(
             this@ClientUnlockService,
             notificationId,
@@ -382,14 +425,46 @@ abstract class ClientUnlockService(
             val remainingMin = (remaining / 1000) / 60
             val remainingStr = String.format(Locale.getDefault(), "%d:%02d", remainingMin, remainingSec)
             val statusText = if (isRetryEnabled) {
-                getString(R.string.wol_unlock_status_format, currentAttemptCount.get(), remainingStr)
+                if (transportMode == UnlockTransportMode.MIXED) {
+                    getString(
+                        R.string.wol_unlock_status_mixed_format,
+                        totalAttemptCount.get(),
+                        wifiAttemptCount.get(),
+                        btAttemptCount.get(),
+                        remainingStr
+                    )
+                } else {
+                    getString(R.string.wol_unlock_status_format, totalAttemptCount.get(), remainingStr)
+                }
             } else {
                 getString(R.string.please_wait_a_moment)
             }
 
+            val bigText = if (isRetryEnabled) {
+                if (transportMode == UnlockTransportMode.MIXED) {
+                    getString(
+                        R.string.wol_unlock_big_text_mixed,
+                        modeLabel,
+                        totalAttemptCount.get(),
+                        wifiAttemptCount.get(),
+                        btAttemptCount.get(),
+                        remainingStr
+                    )
+                } else {
+                    getString(
+                        R.string.wol_unlock_big_text_single,
+                        modeLabel,
+                        totalAttemptCount.get(),
+                        remainingStr
+                    )
+                }
+            } else null
+
             val updatedNotification = buildWolNotification(
-                deviceName = resolvedDeviceName,
+                deviceName = notificationTitle,
+                modeLabel = modeLabel,
                 statusText = statusText,
+                bigText = bigText,
                 isIndeterminate = true,
                 isOngoing = true,
                 timeoutAfterMillis = timeoutMillis,
@@ -424,6 +499,13 @@ abstract class ClientUnlockService(
                     fastDebugLog("Unlock success event received for $successId. Completing unlock loop.")
                     isSuccess = true
                     isCompleted = true
+                    winningTransport = if (matchingClientId != null && successId == matchingClientId) {
+                        UnlockWinner.BLUETOOTH
+                    } else if (transportMode == UnlockTransportMode.BLUETOOTH) {
+                        UnlockWinner.BLUETOOTH
+                    } else {
+                        UnlockWinner.WIFI
+                    }
                     currentAttemptJob?.cancel()
                     delayJob?.cancel()
                 }
@@ -436,7 +518,15 @@ abstract class ClientUnlockService(
                 while (isActive && !isCompleted) {
                     val attemptStartTime = System.currentTimeMillis()
                     if (!isFirstAttempt) {
-                        currentAttemptCount.incrementAndGet()
+                        totalAttemptCount.incrementAndGet()
+                        if (transportMode == UnlockTransportMode.MIXED) {
+                            wifiAttemptCount.incrementAndGet()
+                            btAttemptCount.incrementAndGet()
+                        } else if (transportMode == UnlockTransportMode.WIFI) {
+                            wifiAttemptCount.incrementAndGet()
+                        } else if (transportMode == UnlockTransportMode.BLUETOOTH) {
+                            btAttemptCount.incrementAndGet()
+                        }
                         updateProgressNotification()
                     }
                     isFirstAttempt = false
@@ -445,7 +535,7 @@ abstract class ClientUnlockService(
                     val currentIntervalMillis = (currentIntervalSeconds * 1000L).coerceIn(1000L, 300_000L)
                     val attemptTimeout = maxOf(currentIntervalMillis, 3000L).coerceIn(3000L, 30_000L)
 
-                    val isUnlockSuccessful = try {
+                    val attemptResult = try {
                         val attemptScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
                         val attemptJob = attemptScope.async {
                             unlockBlock()
@@ -460,22 +550,25 @@ abstract class ClientUnlockService(
                             attemptScope.cancel()
                         }
                     } catch (e: TimeoutCancellationException) {
-                        fastDebugLog("Attempt ${currentAttemptCount.get()} timed out after ${attemptTimeout}ms")
-                        false
+                        fastDebugLog("Attempt ${totalAttemptCount.get()} timed out after ${attemptTimeout}ms")
+                        UnlockAttemptResult(isSuccess = false)
                     } catch (e: CancellationException) {
-                        if (isSuccess || isCompleted) true else false
+                        if (isSuccess || isCompleted) UnlockAttemptResult(isSuccess = true, winner = winningTransport) else UnlockAttemptResult(isSuccess = false)
                     } catch (e: Exception) {
-                        fastDebugLog("Attempt ${currentAttemptCount.get()} failed: ${e.message}")
-                        false
+                        fastDebugLog("Attempt ${totalAttemptCount.get()} failed: ${e.message}")
+                        UnlockAttemptResult(isSuccess = false)
                     }
 
-                    if (isSuccess || isUnlockSuccessful) {
-                        fastDebugLog("Unlock success. Stop $this")
+                    if (isSuccess || attemptResult.isSuccess) {
+                        if (!isSuccess && attemptResult.isSuccess) {
+                            winningTransport = attemptResult.winner
+                        }
+                        fastDebugLog("Unlock success (winner=$winningTransport). Stop $this")
                         isSuccess = true
                         isCompleted = true
                         return@withTimeoutOrNull
                     } else {
-                        fastDebugLog("Unlock failed. Restart $this (attempt ${currentAttemptCount.get()})")
+                        fastDebugLog("Unlock failed. Restart $this (attempt ${totalAttemptCount.get()})")
                         if (isActive && !isCompleted && clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout) {
                             val elapsedThisAttempt = System.currentTimeMillis() - attemptStartTime
                             val delayNeeded = (currentIntervalMillis - elapsedThisAttempt).coerceAtLeast(10L)
@@ -503,11 +596,36 @@ abstract class ClientUnlockService(
         }
 
         if (!isCancelledByUser) {
-            val finalStatusText = if (isSuccess) getString(R.string.wol_unlock_success) else getString(R.string.wol_unlock_failed)
-            fastDebugLog("Unlock finished with isSuccess=$isSuccess for ${clientUnlockServiceParams.clientId}. Posting final notification.")
+            val finalStatusText = if (isSuccess) {
+                if (transportMode == UnlockTransportMode.MIXED) {
+                    when (winningTransport) {
+                        UnlockWinner.WIFI -> getString(R.string.wol_unlock_success_via_wifi)
+                        UnlockWinner.BLUETOOTH -> getString(R.string.wol_unlock_success_via_bluetooth)
+                        UnlockWinner.NONE -> getString(R.string.wol_unlock_success)
+                    }
+                } else {
+                    getString(R.string.wol_unlock_success)
+                }
+            } else {
+                getString(R.string.wol_unlock_failed)
+            }
+
+            val finalBigText = if (isSuccess && transportMode == UnlockTransportMode.MIXED) {
+                getString(
+                    R.string.wol_unlock_success_mixed_summary,
+                    finalStatusText,
+                    totalAttemptCount.get(),
+                    wifiAttemptCount.get(),
+                    btAttemptCount.get()
+                )
+            } else null
+
+            fastDebugLog("Unlock finished with isSuccess=$isSuccess (winner=$winningTransport) for ${clientUnlockServiceParams.clientId}. Posting final notification.")
             val finalNotification = buildWolNotification(
-                deviceName = resolvedDeviceName,
+                deviceName = notificationTitle,
+                modeLabel = modeLabel,
                 statusText = finalStatusText,
+                bigText = finalBigText,
                 isIndeterminate = false,
                 isOngoing = false,
                 timeoutAfterMillis = NOTIFICATION_DISMISS_DELAY,
@@ -530,6 +648,8 @@ abstract class ClientUnlockService(
     private fun buildWolNotification(
         deviceName: String,
         statusText: String,
+        modeLabel: String? = null,
+        bigText: String? = null,
         isIndeterminate: Boolean,
         isOngoing: Boolean,
         timeoutAfterMillis: Long? = null,
@@ -545,7 +665,11 @@ abstract class ClientUnlockService(
         )
         return buildNotification(channelId) {
             setContentTitle(deviceName)
+            modeLabel?.let { setSubText(it) }
             setContentText(statusText)
+            if (bigText != null) {
+                setStyle(Notification.BigTextStyle().bigText(bigText))
+            }
             setSmallIcon(smallIconRes)
             iconBitmap?.let { setLargeIcon(it) }
             if (isIndeterminate) {
