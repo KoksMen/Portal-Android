@@ -27,9 +27,9 @@
     <string name="allow_entry">Allow sign-in</string>
     <string name="wi_fi" translatable="false">Wi-Fi</string>
     <string name="bluetooth" translatable="false">Bluetooth</string>
-    <string name="wol_unlock_status_format">Attempt %1$d • Remaining %2$s</string>
-    <string name="wol_unlock_status_mixed_format">Attempt %1$d (Wi-Fi: %2$d • BT: %3$d) • Remaining %4$s</string>
-    <string name="wol_unlock_mode_mixed">Wi-Fi + Bluetooth</string>
+    <string name="wol_unlock_status_format">Attempt %1$d • %2$s</string>
+    <string name="wol_unlock_status_mixed_format">Attempt %1$d (Wi-Fi %2$d, BT %3$d) • %4$s</string>
+    <string name="wol_unlock_mode_mixed">Wi-Fi + BT</string>
     <string name="wol_unlock_mode_wifi">Wi-Fi</string>
     <string name="wol_unlock_mode_bluetooth">Bluetooth</string>
     <string name="wol_unlock_success">Device unlocked successfully</string>

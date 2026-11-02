@@ -258,14 +258,6 @@ abstract class ClientUnlockService(
                 if (!unlockSucceeded && !isCancelledByUser) {
                     dispatchAllDeferredType2Requests()
                 }
-                if ((clientUnlockServiceParams.isSendWOLRequest || clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout) && !isCancelledByUser) {
-                    try {
-                        delay(NOTIFICATION_DISMISS_DELAY)
-                    } catch (_: Exception) {}
-                    val nm = applicationContext.getSystemService<NotificationManager>() ?: getSystemService<NotificationManager>()
-                    nm?.cancel(notificationId)
-                    cancelNotificationDismiss(notificationId)
-                }
             }
         }
     }
@@ -403,7 +395,7 @@ abstract class ClientUnlockService(
             UnlockTransportMode.BLUETOOTH -> getString(R.string.wol_unlock_mode_bluetooth)
         }
 
-        val notificationTitle = "$resolvedDeviceName • $modeLabel"
+        val notificationTitle = resolvedDeviceName
 
         val cancelIntent = PendingIntent.getService(
             this@ClientUnlockService,
@@ -533,7 +525,7 @@ abstract class ClientUnlockService(
 
                     val currentIntervalSeconds = settingsRepository.portalSettings.first().type1RetryIntervalSeconds
                     val currentIntervalMillis = (currentIntervalSeconds * 1000L).coerceIn(1000L, 300_000L)
-                    val attemptTimeout = maxOf(currentIntervalMillis, 3000L).coerceIn(3000L, 30_000L)
+                    val attemptTimeout = maxOf(currentIntervalMillis, 8000L).coerceIn(8000L, 30_000L)
 
                     val attemptResult = try {
                         val attemptScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -621,6 +613,7 @@ abstract class ClientUnlockService(
             } else null
 
             fastDebugLog("Unlock finished with isSuccess=$isSuccess (winner=$winningTransport) for ${clientUnlockServiceParams.clientId}. Posting final notification.")
+            stopForeground(STOP_FOREGROUND_REMOVE)
             val finalNotification = buildWolNotification(
                 deviceName = notificationTitle,
                 modeLabel = modeLabel,
@@ -633,7 +626,6 @@ abstract class ClientUnlockService(
                 smallIconRes = smallIconRes,
                 iconBitmap = iconBitmap
             )
-            stopForeground(STOP_FOREGROUND_DETACH)
             notificationManager?.notify(notificationId, finalNotification)
             scheduleNotificationDismiss(
                 applicationContext.getSystemService<NotificationManager>() ?: notificationManager,
@@ -674,8 +666,6 @@ abstract class ClientUnlockService(
             iconBitmap?.let { setLargeIcon(it) }
             if (isIndeterminate) {
                 setProgress(0, 0, true)
-            } else {
-                setProgress(0, 0, false)
             }
             setOngoing(isOngoing)
             setOnlyAlertOnce(true)
