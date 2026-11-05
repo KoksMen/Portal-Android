@@ -35,6 +35,7 @@
     <string name="wol_unlock_success_via_wifi">Device unlocked successfully via Wi-Fi</string>
     <string name="wol_unlock_success_via_bluetooth">Device unlocked successfully via Bluetooth</string>
     <string name="wol_unlock_big_text_single">Mode: %1$s\nAttempt: %2$d • Remaining: %3$s</string>
-    <string name="wol_unlock_success_mixed_summary">%1$s\nTotal attempts: %2$d</string>
+    <string name="wol_unlock_big_text_mixed">Mode: %1$s\nAttempts: %2$d (Wi-Fi: %3$d, BT: %4$d) • Remaining: %5$s</string>
+    <string name="wol_unlock_success_mixed_summary">%1$s\nTotal attempts: %2$d (Wi-Fi: %3$d, BT: %4$d)</string>
     <string name="wol_unlock_failed">Failed to unlock device</string>
 </resources>

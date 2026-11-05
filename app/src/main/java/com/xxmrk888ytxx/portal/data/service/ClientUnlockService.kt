@@ -294,11 +294,12 @@ abstract class ClientUnlockService(
             transportMode = UnlockTransportMode.BLUETOOTH,
             timeoutMillis = timeoutMillis,
             retryIntervalMillis = retryIntervalMillis,
-            matchingClientId = matchingWifiClientId
-        ) {
-            val ok = tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams, timeoutMs = BluetoothPortalApi.DEFAULT_TIMEOUT)
-            UnlockAttemptResult(isSuccess = ok, winner = if (ok) UnlockWinner.BLUETOOTH else UnlockWinner.NONE)
-        }
+            matchingClientId = matchingWifiClientId,
+            wifiBlock = null,
+            bluetoothBlock = {
+                tryBluetoothDeviceUnlock(bluetoothDevice, clientUnlockServiceParams, timeoutMs = BluetoothPortalApi.DEFAULT_TIMEOUT)
+            }
+        )
     }
 
     private suspend fun doUnlockWifiDevice(
@@ -313,56 +314,31 @@ abstract class ClientUnlockService(
         if (macAddress == null) {
             fastDebugLog("Mac address is null. WOL unavailable for deviceId ${wifiDevice.clientId} ")
         }
+        val isMixed = matchingBtDevice != null && clientUnlockServiceParams.isSendWOLRequest && transportMode == UnlockTransportMode.MIXED
         return doUnlock(
             clientUnlockServiceParams = clientUnlockServiceParams,
             deviceName = wifiDevice.deviceName,
             transportMode = transportMode,
             timeoutMillis = timeoutMillis,
             retryIntervalMillis = retryIntervalMillis,
-            matchingClientId = matchingBtDevice?.clientId
-        ) {
-            if (matchingBtDevice == null || !clientUnlockServiceParams.isSendUnlockRequest || transportMode != UnlockTransportMode.MIXED) {
-                val ok = tryWifiDeviceUnlock(
+            matchingClientId = matchingBtDevice?.clientId,
+            wifiBlock = {
+                tryWifiDeviceUnlock(
                     wifiDevice = wifiDevice,
                     macAddress = macAddress,
                     clientUnlockServiceParams = clientUnlockServiceParams
                 )
-                UnlockAttemptResult(isSuccess = ok, winner = if (ok) UnlockWinner.WIFI else UnlockWinner.NONE)
-            } else {
-                val attemptScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-                try {
-                    val resultDeferred = CompletableDeferred<UnlockAttemptResult>()
-                    val wifiJob = attemptScope.launch {
-                        val ok = tryWifiDeviceUnlock(
-                            wifiDevice = wifiDevice,
-                            macAddress = macAddress,
-                            clientUnlockServiceParams = clientUnlockServiceParams
-                        )
-                        if (ok) {
-                            resultDeferred.complete(UnlockAttemptResult(isSuccess = true, winner = UnlockWinner.WIFI))
-                        }
-                    }
-                    val btJob = attemptScope.launch {
-                        val ok = tryBluetoothDeviceUnlock(
-                            bluetoothDevice = matchingBtDevice,
-                            clientUnlockServiceParams = clientUnlockServiceParams,
-                            timeoutMs = BluetoothPortalApi.DEFAULT_TIMEOUT
-                        )
-                        if (ok) {
-                            resultDeferred.complete(UnlockAttemptResult(isSuccess = true, winner = UnlockWinner.BLUETOOTH))
-                        }
-                    }
-                    val allDoneJob = attemptScope.launch {
-                        wifiJob.join()
-                        btJob.join()
-                        resultDeferred.complete(UnlockAttemptResult(isSuccess = false, winner = UnlockWinner.NONE))
-                    }
-                    resultDeferred.await()
-                } finally {
-                    attemptScope.cancel()
+            },
+            bluetoothBlock = if (isMixed && clientUnlockServiceParams.isSendUnlockRequest) {
+                {
+                    tryBluetoothDeviceUnlock(
+                        bluetoothDevice = matchingBtDevice,
+                        clientUnlockServiceParams = clientUnlockServiceParams,
+                        timeoutMs = BluetoothPortalApi.DEFAULT_TIMEOUT
+                    )
                 }
-            }
-        }
+            } else null
+        )
     }
 
     private suspend fun doUnlock(
@@ -372,13 +348,18 @@ abstract class ClientUnlockService(
         timeoutMillis: Long,
         retryIntervalMillis: Long = DEFAULT_ATTEMPT_INTERVAL,
         matchingClientId: String? = null,
-        unlockBlock: suspend () -> UnlockAttemptResult
+        wifiBlock: (suspend () -> Boolean)? = null,
+        bluetoothBlock: (suspend () -> Boolean)? = null
     ): Boolean = coroutineScope {
         var isSuccess = false
         var isCompleted = false
         var winningTransport = UnlockWinner.NONE
         val startTime = System.currentTimeMillis()
-        val totalAttemptCount = AtomicInteger(1)
+
+        val wifiAttemptCount = AtomicInteger(0)
+        val btAttemptCount = AtomicInteger(0)
+        val totalAttemptCount = AtomicInteger(0)
+
         val notificationManager = applicationContext.getSystemService<NotificationManager>()
             ?: getSystemService<NotificationManager>()
 
@@ -414,19 +395,31 @@ abstract class ClientUnlockService(
             val remainingSec = (remaining / 1000) % 60
             val remainingMin = (remaining / 1000) / 60
             val remainingStr = String.format(Locale.getDefault(), "%d:%02d", remainingMin, remainingSec)
+            val currentTotal = maxOf(1, totalAttemptCount.get())
             val statusText = if (isRetryEnabled) {
-                getString(R.string.wol_unlock_status_format, totalAttemptCount.get(), remainingStr)
+                getString(R.string.wol_unlock_status_format, currentTotal, remainingStr)
             } else {
                 getString(R.string.please_wait_a_moment)
             }
 
             val bigText = if (isRetryEnabled) {
-                getString(
-                    R.string.wol_unlock_big_text_single,
-                    modeLabel,
-                    totalAttemptCount.get(),
-                    remainingStr
-                )
+                if (transportMode == UnlockTransportMode.MIXED) {
+                    getString(
+                        R.string.wol_unlock_big_text_mixed,
+                        modeLabel,
+                        currentTotal,
+                        wifiAttemptCount.get(),
+                        btAttemptCount.get(),
+                        remainingStr
+                    )
+                } else {
+                    getString(
+                        R.string.wol_unlock_big_text_single,
+                        modeLabel,
+                        currentTotal,
+                        remainingStr
+                    )
+                }
             } else null
 
             val updatedNotification = buildWolNotification(
@@ -458,101 +451,131 @@ abstract class ClientUnlockService(
             }
         } else null
 
-        val targetClientIds = setOfNotNull(clientUnlockServiceParams.clientId, matchingClientId)
-        var currentAttemptJob: Job? = null
-        var delayJob: Job? = null
+        val completionLock = Any()
+        var wifiRunnerJob: Job? = null
+        var btRunnerJob: Job? = null
 
+        fun completeWithSuccess(winner: UnlockWinner) {
+            synchronized(completionLock) {
+                if (isCompleted) return
+                fastDebugLog("Unlock success (winner=$winner). Completing unlock.")
+                isSuccess = true
+                isCompleted = true
+                winningTransport = winner
+                wifiRunnerJob?.cancel()
+                btRunnerJob?.cancel()
+            }
+        }
+
+        val targetClientIds = setOfNotNull(clientUnlockServiceParams.clientId, matchingClientId)
         val unlockEventListener = launch {
             activeUnlockTracker.unlockSuccessEvents.collect { successId ->
                 if (targetClientIds.contains(successId)) {
                     fastDebugLog("Unlock success event received for $successId. Completing unlock loop.")
-                    isSuccess = true
-                    isCompleted = true
-                    winningTransport = if (matchingClientId != null && successId == matchingClientId) {
+                    val winner = if (matchingClientId != null && successId == matchingClientId) {
                         UnlockWinner.BLUETOOTH
                     } else if (transportMode == UnlockTransportMode.BLUETOOTH) {
                         UnlockWinner.BLUETOOTH
                     } else {
                         UnlockWinner.WIFI
                     }
-                    currentAttemptJob?.cancel()
-                    delayJob?.cancel()
+                    completeWithSuccess(winner)
+                }
+            }
+        }
+
+        if (wifiBlock != null) {
+            wifiRunnerJob = launch {
+                while (isActive && !isCompleted) {
+                    val attemptStartTime = System.currentTimeMillis()
+                    wifiAttemptCount.incrementAndGet()
+                    totalAttemptCount.set(wifiAttemptCount.get() + btAttemptCount.get())
+                    updateProgressNotification()
+
+                    val currentIntervalSeconds = settingsRepository.portalSettings.first().type1RetryIntervalSeconds
+                    val currentIntervalMillis = (currentIntervalSeconds * 1000L).coerceIn(1000L, 300_000L)
+                    val wifiAttemptTimeout = maxOf(currentIntervalMillis, 2000L).coerceIn(1000L, 10_000L)
+
+                    val ok = try {
+                        withTimeout(wifiAttemptTimeout) {
+                            wifiBlock()
+                        }
+                    } catch (e: TimeoutCancellationException) {
+                        fastDebugLog("Wi-Fi attempt ${wifiAttemptCount.get()} timed out after ${wifiAttemptTimeout}ms")
+                        false
+                    } catch (e: CancellationException) {
+                        if (isSuccess || isCompleted) true else false
+                    } catch (e: Exception) {
+                        fastDebugLog("Wi-Fi attempt ${wifiAttemptCount.get()} failed: ${e.message}")
+                        false
+                    }
+
+                    if (ok) {
+                        completeWithSuccess(UnlockWinner.WIFI)
+                        break
+                    }
+
+                    if (!clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout) break
+
+                    val elapsed = System.currentTimeMillis() - attemptStartTime
+                    val delayNeeded = (currentIntervalMillis - elapsed).coerceAtLeast(10L)
+                    delay(delayNeeded)
+                }
+            }
+        }
+
+        if (bluetoothBlock != null) {
+            btRunnerJob = launch {
+                val btAttemptTimeout = BluetoothPortalApi.DEFAULT_TIMEOUT
+                val btRetryDelay = 1000L
+                while (isActive && !isCompleted) {
+                    val attemptStartTime = System.currentTimeMillis()
+                    btAttemptCount.incrementAndGet()
+                    totalAttemptCount.set(wifiAttemptCount.get() + btAttemptCount.get())
+                    updateProgressNotification()
+
+                    val ok = try {
+                        withTimeout(btAttemptTimeout) {
+                            bluetoothBlock()
+                        }
+                    } catch (e: TimeoutCancellationException) {
+                        fastDebugLog("Bluetooth attempt ${btAttemptCount.get()} timed out after ${btAttemptTimeout}ms")
+                        false
+                    } catch (e: CancellationException) {
+                        if (isSuccess || isCompleted) true else false
+                    } catch (e: Exception) {
+                        fastDebugLog("Bluetooth attempt ${btAttemptCount.get()} failed: ${e.message}")
+                        false
+                    }
+
+                    if (ok) {
+                        completeWithSuccess(UnlockWinner.BLUETOOTH)
+                        break
+                    }
+
+                    if (!clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout) break
+
+                    delay(btRetryDelay)
                 }
             }
         }
 
         try {
             withTimeoutOrNull(timeoutMillis) {
-                var isFirstAttempt = true
                 while (isActive && !isCompleted) {
-                    val attemptStartTime = System.currentTimeMillis()
-                    if (!isFirstAttempt) {
-                        totalAttemptCount.incrementAndGet()
-                        updateProgressNotification()
+                    val wifiActive = wifiRunnerJob?.isActive == true
+                    val btActive = btRunnerJob?.isActive == true
+                    if (!wifiActive && !btActive) {
+                        break
                     }
-                    isFirstAttempt = false
-
-                    val currentIntervalSeconds = settingsRepository.portalSettings.first().type1RetryIntervalSeconds
-                    val currentIntervalMillis = (currentIntervalSeconds * 1000L).coerceIn(1000L, 300_000L)
-                    val attemptTimeout = maxOf(currentIntervalMillis, 8000L).coerceIn(8000L, 30_000L)
-
-                    val attemptResult = try {
-                        val attemptScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-                        val attemptJob = attemptScope.async {
-                            unlockBlock()
-                        }
-                        currentAttemptJob = attemptJob
-                        try {
-                            withTimeout(attemptTimeout) {
-                                attemptJob.await()
-                            }
-                        } finally {
-                            currentAttemptJob = null
-                            attemptScope.cancel()
-                        }
-                    } catch (e: TimeoutCancellationException) {
-                        fastDebugLog("Attempt ${totalAttemptCount.get()} timed out after ${attemptTimeout}ms")
-                        UnlockAttemptResult(isSuccess = false)
-                    } catch (e: CancellationException) {
-                        if (isSuccess || isCompleted) UnlockAttemptResult(isSuccess = true, winner = winningTransport) else UnlockAttemptResult(isSuccess = false)
-                    } catch (e: Exception) {
-                        fastDebugLog("Attempt ${totalAttemptCount.get()} failed: ${e.message}")
-                        UnlockAttemptResult(isSuccess = false)
-                    }
-
-                    if (isSuccess || attemptResult.isSuccess) {
-                        if (!isSuccess && attemptResult.isSuccess) {
-                            winningTransport = attemptResult.winner
-                        }
-                        fastDebugLog("Unlock success (winner=$winningTransport). Stop $this")
-                        isSuccess = true
-                        isCompleted = true
-                        return@withTimeoutOrNull
-                    } else {
-                        fastDebugLog("Unlock failed. Restart $this (attempt ${totalAttemptCount.get()})")
-                        if (isActive && !isCompleted && clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout) {
-                            val elapsedThisAttempt = System.currentTimeMillis() - attemptStartTime
-                            val delayNeeded = (currentIntervalMillis - elapsedThisAttempt).coerceAtLeast(10L)
-                            val delayScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-                            val currentDelayJob = delayScope.launch {
-                                delay(delayNeeded)
-                            }
-                            delayJob = currentDelayJob
-                            try {
-                                currentDelayJob.join()
-                            } finally {
-                                delayJob = null
-                                delayScope.cancel()
-                            }
-                        }
-                    }
-                    if (!clientUnlockServiceParams.tryToRetryUnlockUntilSuccessOrTimeout) break
+                    delay(50L)
                 }
             }
         } finally {
             isCompleted = true
             unlockEventListener.cancel()
-            delayJob?.cancel()
+            wifiRunnerJob?.cancel()
+            btRunnerJob?.cancel()
             tickerJob?.cancelAndJoin()
         }
 
@@ -575,7 +598,9 @@ abstract class ClientUnlockService(
                 getString(
                     R.string.wol_unlock_success_mixed_summary,
                     finalStatusText,
-                    totalAttemptCount.get()
+                    totalAttemptCount.get(),
+                    wifiAttemptCount.get(),
+                    btAttemptCount.get()
                 )
             } else null
 
