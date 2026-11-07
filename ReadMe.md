@@ -3,7 +3,7 @@
 </p>
 
 <h1 align="center">🔐 Portal-Android 🔐</h1>
-<h3 align="center">✨ Кодовое имя: <em>Camelia.4</em> (v2.4.0 / Code 56) ✨</h3>
+<h3 align="center">✨ Кодовое имя: <em>Camelia.5</em> (v2.4.0 / Code 57) ✨</h3>
 
 <p align="center">
   <b>Умный, безопасный и мгновенный беспроводной ключ для ПК на Android и Wear OS</b><br>
@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/KoksMen/Portal-Android/releases/latest"><img src="https://img.shields.io/badge/Version-Camelia.4-7c4dff?style=for-the-badge&logo=github&logoColor=white" alt="Portal-Android Camelia.4" /></a>
+  <a href="https://github.com/KoksMen/Portal-Android/releases/latest"><img src="https://img.shields.io/badge/Version-Camelia.5-7c4dff?style=for-the-badge&logo=github&logoColor=white" alt="Portal-Android Camelia.5" /></a>
   <img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 2.4.10" />
   <img src="https://img.shields.io/badge/Platform-Android%208.0%2B%20%7C%20Wear%20OS-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 8.0+ / Wear OS" />
   <a href="https://play.google.com/store/apps/details?id=com.xxmrk888ytxx.portal"><img src="https://img.shields.io/badge/Google%20Play-Portal%20Android-34A853?style=for-the-badge&logo=googleplay&logoColor=white" alt="Google Play" /></a>
@@ -29,7 +29,7 @@
 
 | Платформа / Platform | Источник / Source | Ссылка / Link |
 |:--------------------:|:-----------------:|:-------------:|
-| **Android & Wear OS (APK)** | GitHub Releases | [📥 Скачать последний APK (Camelia.4)](https://github.com/KoksMen/Portal-Android/releases/latest) |
+| **Android & Wear OS (APK)** | GitHub Releases | [📥 Скачать последний APK (Camelia.5)](https://github.com/KoksMen/Portal-Android/releases/latest) |
 | **Android & Wear OS** | Google Play Store | [🏪 Открыть в Google Play](https://play.google.com/store/apps/details?id=com.xxmrk888ytxx.portal) |
 | **PC Client (Windows)** | GitHub Releases | [💻 Скачать Portal-Windows](https://github.com/KoksMen/Portal-Windows/releases) |
 
@@ -41,6 +41,28 @@
 
 > [!IMPORTANT]
 > Для работы приложения необходимо установить Windows-клиент на ваш ПК: [**Portal-Windows**](https://github.com/KoksMen/Portal-Windows/releases).
+
+---
+
+## ✨ Что нового в версии Camelia.5
+
+- **⚡ Параллельная гибридная разблокировка (Mixed Wi-Fi + Bluetooth WOL):**
+  - **Одновременная отправка запросов:** добавлен гибридный режим разблокировки (настраивается как глобально, так и индивидуально для каждого ПК). При разблокировке по Wake-on-LAN телефон отправляет пакеты и опрашивает ПК сразу по Wi-Fi и Bluetooth.
+  - **Независимые циклы и тайминги:** Wi-Fi опрашивается с выбранной пользователем частотой (вплоть до 1 сек) с быстрым таймаутом (2 сек). Bluetooth работает в независимой корутине со своими радиотаймингами RFCOMM (~7 сек таймаут, 1 сек задержка повтора), не блокируя и не замедляя Wi-Fi попытки.
+  - **Мгновенная отмена:** как только ПК отвечает по любому из каналов, разблокировка фиксируется, а второй опрос мгновенно завершается.
+- **📊 Раздельный и суммарный учёт попыток:**
+  - В компактном уведомлении отображается общая сумма попыток без переполнения строки (`Попытка X • Осталось MM:SS`).
+  - В развёрнутом уведомлении доступна полная статистика с разбивкой (`Попыток: X (Wi-Fi: Y, BT: Z)`).
+  - При успехе уведомление отображает победивший транспорт и итоговую разбивку по попыткам.
+  - Ежесекундное обновление таймера обратного отсчёта и автозакрытие уведомления через 30 секунд.
+- **🚀 Мгновенная прозрачность ярлыков быстрого запуска:**
+  - Устранено появление черного экрана и системного превью при нажатии на ярлык разблокировки на рабочем столе. Окно ярлыка становится полностью прозрачным с первой миллисекунды.
+- **🛠 Повышение надежности Bluetooth и WOL:**
+  - Устранена коллизия сокетов при параллельных запросах Bluetooth и реализована предварительная подписка на входящие потоки в `BluetoothPortalApi`.
+  - Исправлено преждевременное закрытие RFCOMM сокетов и оптимизировано их кэширование.
+  - Защита от зависания анимации прогресса в уведомлении после разблокировки.
+  - Корректная обработка Wake-on-LAN при включении ПК и автоотправка отложенных запросов разблокировки 2-го типа при отмене 1-го типа.
+  - Динамическое отображение выбранной кастомной иконки приложения во всех системных уведомлениях.
 
 ---
 
@@ -163,6 +185,28 @@ Portal-Android
 
 > [!IMPORTANT]
 > To use Portal, the Windows desktop client must be running on your computer: [**Portal-Windows**](https://github.com/KoksMen/Portal-Windows/releases).
+
+---
+
+## ✨ What's New in Camelia.5
+
+- **⚡ Concurrent Mixed Unlock (Wi-Fi + Bluetooth WOL):**
+  - **Dual-Channel Outbound Unlock:** Added Mixed Unlock mode (configurable globally and per device). When waking a PC via Wake-on-LAN, requests are dispatched simultaneously over Wi-Fi and Bluetooth.
+  - **Decoupled Transport Timings:** Wi-Fi runner respects the user's configured frequency (down to 1s) with a fast 2s timeout without blocking. Bluetooth runner executes in an independent coroutine with optimal RFCOMM radio timings (~7s timeout, 1s retry delay).
+  - **Instant Cancellation on Success:** As soon as the PC confirms unlock via either transport, the other channel is cancelled immediately.
+- **📊 Independent & Total Attempt Tracking:**
+  - Single-line compact notification shows total attempts without text clipping (`Attempt X • Remaining MM:SS`).
+  - Expanded notification (`BigTextStyle`) displays detailed breakdown (`Attempts: X (Wi-Fi: Y, BT: Z)`).
+  - Success notification highlights the winning transport and displays final attempt breakdown.
+  - Real-time second-by-second countdown timer and 30s auto-dismiss on success.
+- **🚀 Instant Transparency for Desktop Shortcuts:**
+  - Eliminated black screen and preview frame flicker when triggering unlock from launcher shortcuts (`ShortcutUnlockActivity` becomes fully transparent from frame 0).
+- **🛠 Bluetooth & Wake-on-LAN Reliability Improvements:**
+  - Resolved RFCOMM socket collisions on concurrent requests and pre-subscribed response streams in `BluetoothPortalApi`.
+  - Prevented premature Bluetooth socket closures and improved socket connection caching.
+  - Fixed notification progress animation getting stuck after external unlock completion.
+  - Reliable Wake-on-LAN retries, continuous mDNS discovery, and automatic deferred Type 2 dispatch upon Type 1 cancel.
+  - Custom app icons dynamically reflected across all system notifications.
 
 ---
 
